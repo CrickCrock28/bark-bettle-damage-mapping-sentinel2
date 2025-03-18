@@ -8,13 +8,11 @@ class Pretrainedmodel(nn.Module):
         self.model.fc = nn.Identity()
         self.global_pool = nn.AdaptiveAvgPool2d(1)
 
+        # Fully connected layer to have a simple binary classification problem
         self.fc = nn.Linear(
             in_features=2048,
             out_features=num_classes
         )
-
-        # Sigmoid to get a simple binary classification
-        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -30,10 +28,9 @@ class Pretrainedmodel(nn.Module):
         x4 = self.global_pool(x4)
         x4 = x4.view(x4.size(0), -1)
 
+        # Logic for simple binary classification problem
         y = self.fc(x4)
-        
-        # Apply sigmoid to get a simple binary classification
-        y = self.sigmoid(y)
+
         return y
 
     @classmethod

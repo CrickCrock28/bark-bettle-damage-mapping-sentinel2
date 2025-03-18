@@ -4,7 +4,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from dataset import SentinelDataset, load_data
-from Pretrainedmodel import Pretrainedmodel
+from model import Pretrainedmodel
 
 import config
 
@@ -53,24 +53,45 @@ def main():
         config.filenames["images"]
     )
 
-    train_dataset = SentinelDataset(train_images, train_masks, channels_order)
-    test_dataset = SentinelDataset(test_images, test_masks, channels_order)
+    train_dataset = SentinelDataset(
+        train_images,
+        train_masks,
+        channels_order
+    )
+    test_dataset = SentinelDataset(
+        test_images,
+        test_masks,
+        channels_order
+    )
 
-    train_loader = DataLoader(train_dataset, batch_size=config.training["batch_size"], shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=config.training["batch_size"])
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=config.training["batch_size"],
+        shuffle=True
+    )
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=config.training["batch_size"],
+        shuffle=False
+    )
 
-    model = Pretrainedmodel.from_pretrained(config.model["pretrained_name"], num_classes=1).to(device)
+    model = Pretrainedmodel.from_pretrained(
+        config.model["pretrained_name"],
+        num_classes=1
+    ).to(device)
 
-    # Mean Squared Error Loss and Stochastic Gradient Descent optimizer to have a simple binary classification problem
     criterion = nn.MSELoss()
-    optimizer = optim.SGD(model.parameters(), lr=config.training["learning_rate"])
+    optimizer = optim.SGD(
+        params=model.parameters(),
+        lr=config.training["learning_rate"]
+    )
 
     epochs = config.training["epochs"]
     for epoch in range(epochs):
         train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
         val_loss = validate_epoch(model, test_loader, criterion, device)
 
-        print(f"Epoch [{epoch+1}/{epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}")
+        print(f"Epoch [{epoch+1}/{epochs}], Training Loss: {train_loss:.3f}, Validation Loss: {val_loss:.3f}")
 
 if __name__ == "__main__":
     main()
