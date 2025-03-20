@@ -23,7 +23,7 @@ class SentinelDataset(Dataset):
             image = src.read(self.channels_order)
             image_tensor = torch.from_numpy(image).float()
 
-        image_tensor = self.pad_to_target_size(image_tensor, self.target_size)
+        image_tensor = pad_to_target_size(image_tensor, self.target_size)
         image_tensor = TF.resize(image_tensor, self.target_size)
 
         with rasterio.open(mask_path) as src:            
@@ -34,24 +34,24 @@ class SentinelDataset(Dataset):
             
         return image_tensor, label
 
-    def pad_to_target_size(self, img_tensor, target_size):
-        _, h, w = img_tensor.shape
-        padding_height = max(target_size[0] - h, 0)
-        padding_width = max(target_size[1] - w, 0)
+def pad_to_target_size(img_tensor, target_size):
+    _, h, w = img_tensor.shape
+    padding_height = max(target_size[0] - h, 0)
+    padding_width = max(target_size[1] - w, 0)
 
-        if padding_height > 0 or padding_width > 0:
-            img_tensor = nn.functional.pad(
-                img_tensor,
-                pad=(
-                    padding_width // 2,
-                    padding_width - padding_width // 2,
-                    padding_height // 2,
-                    padding_height - padding_height // 2
-                ),
-                mode='constant',
-                value=0
-            )
-        return img_tensor
+    if padding_height > 0 or padding_width > 0:
+        img_tensor = nn.functional.pad(
+            img_tensor,
+            pad=(
+                padding_width // 2,
+                padding_width - padding_width // 2,
+                padding_height // 2,
+                padding_height - padding_height // 2
+            ),
+            mode='constant',
+            value=0
+        )
+    return img_tensor
 
 def get_mask_ids(mask_dir, mask_filename_format):
     return [
@@ -66,12 +66,12 @@ def load_data(mask_dir, sentinel_data_dirs, mask_filename_format, image_filename
     mask_ids = get_mask_ids(mask_dir, mask_filename_format)
     
     image_paths, mask_paths = [], []
-    for mass_id in mask_ids:
+    for mask_id in mask_ids:
         for data_dir in sentinel_data_dirs:
-            candidate = os.path.join(data_dir, image_filename_format.format(id=mass_id))
+            candidate = os.path.join(data_dir, image_filename_format.format(id=mask_id))
             if os.path.exists(candidate):
                 image_paths.append(candidate)
-                mask_paths.append(os.path.join(mask_dir, mask_filename_format.format(id=mass_id)))
+                mask_paths.append(os.path.join(mask_dir, mask_filename_format.format(id=mask_id)))
                 break
 
     return image_paths, mask_paths
