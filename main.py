@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from dataset import SentinelDataset, load_data
 from model import Pretrainedmodel
 
-import config
+from config.config_loader import Config
 
 def train_epoch(model, loader, criterion, optimizer, device):
     model.train()
@@ -33,6 +33,9 @@ def validate_epoch(model, loader, criterion, device):
     return total_loss / len(loader)
 
 def main():
+
+    config = Config()
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     current_channels = config.channels["current"]
