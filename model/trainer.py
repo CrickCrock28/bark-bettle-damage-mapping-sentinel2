@@ -6,67 +6,68 @@ import csv
 import os
 
 class Trainer:
-    def __init__(self, model, criterion, optimizer, device, scheduler=None):
+    """Trainer class to handle training and validation of the model."""
+    def __init__(self, model, criterion, optimizer, device, log_dir, scheduler=None, default_threshold=0.3):
+        """Initialize the Trainer class"""
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
         self.device = device
         self.scheduler = scheduler
+        self.log_dir = log_dir
+        self.default_threshold = default_threshold
+        os.makedirs(self.log_dir, exist_ok=True)
 
-    def train_epoch(self, loader):
-        self.model.train()
+    def run_epoch(self, loader, training=True):
+        """Run a single epoch of training or validation"""
+        self.model.train() if training else self.model.eval()
         total_loss = 0.0
-        progress_bar = tqdm(enumerate(loader), total=len(loader), desc="Training", leave=False)
 
-        for batch_idx, (images, labels) in progress_bar:
+        loop = tqdm(loader, total=len(loader), desc="Training" if training else "Validating", leave=False)
+        for images, labels in loop:
             images, labels = images.to(self.device), labels.to(self.device)
-            self.optimizer.zero_grad()
+            if training:
+                self.optimizer.zero_grad()
+
             outputs = self.model(images)
             loss = self.criterion(outputs, labels)
-            loss.backward()
-            self.optimizer.step()
-            if self.scheduler:
-                self.scheduler.step()
+
+            if training:
+                loss.backward()
+                self.optimizer.step()
+                if self.scheduler:
+                    self.scheduler.step()
+
             total_loss += loss.item()
-            progress_bar.set_postfix({'Batch Loss': loss.item()})
+            loop.set_postfix({'Batch Loss': loss.item()})
 
         avg_loss = total_loss / len(loader)
         return avg_loss
+
+    def train_epoch(self, loader):
+        """Train the model for one epoch"""
+        return self.run_epoch(loader, training=True)
 
     @torch.no_grad()
     def validate_epoch(self, loader):
-        self.model.eval()
-        total_loss = 0.0
-        progress_bar = tqdm(loader, total=len(loader), desc="Validating", leave=False)
-
-        for images, labels in progress_bar:
-            images, labels = images.to(self.device), labels.to(self.device)
-            outputs = self.model(images)
-            loss = self.criterion(outputs, labels)
-            total_loss += loss.item()
-            progress_bar.set_postfix({'Batch Loss': loss.item()})
-
-        avg_loss = total_loss / len(loader)
-        return avg_loss
+        """Validate the model for one epoch"""
+        return self.run_epoch(loader, training=False)
 
     @torch.no_grad()
-    def evaluate_metrics(self, loader, dynamic_threshold=False, epoch=None, log_dir="logs"):
+    def compute_metrics(self, loader, dynamic_threshold=False):
+        """Compute metrics for the model on the given dataset"""
         self.model.eval()
-        all_labels = []
-        all_probs = []
-        progress_bar = tqdm(loader, total=len(loader), desc="Evaluating", leave=False)
+        all_labels, all_probs = [], []
 
-        for images, labels in progress_bar:
+        # Iterate over the dataset to get predictions and labels
+        for images, labels in tqdm(loader, total=len(loader), desc="Evaluating", leave=False):
             images = images.to(self.device)
-            labels = labels.to(self.device)
-
             outputs = self.model(images)
             probs = torch.sigmoid(outputs).cpu().numpy()
-            labels = labels.cpu().numpy().astype(int)
-
-            all_labels.extend(labels.flatten())
             all_probs.extend(probs.flatten())
+            all_labels.extend(labels.cpu().numpy().astype(int).flatten())
 
+        # Compute metrics
         if dynamic_threshold:
             precision, recall, thresholds = precision_recall_curve(all_labels, all_probs)
             f1_scores = 2 * recall * precision / (recall + precision + 1e-8)
@@ -74,43 +75,55 @@ class Trainer:
             best_threshold = thresholds[best_idx]
             print(f"Dynamic Threshold selected: {best_threshold:.2f}")
         else:
-            best_threshold = 0.3
+            best_threshold = self.default_threshold
 
         all_preds = (torch.tensor(all_probs) > best_threshold).int().numpy()
 
-        # Metrics
         cm = confusion_matrix(all_labels, all_preds)
-        report = classification_report(all_labels, all_preds, target_names=["Class 0", "Class 1"], output_dict=True, zero_division=0)
         recall = recall_score(all_labels, all_preds)
         precision = precision_score(all_labels, all_preds)
         f1 = f1_score(all_labels, all_preds)
 
+        # Print metrics
         print("Confusion Matrix:")
         print(cm)
         print(f"===> Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}")
 
-        os.makedirs(log_dir, exist_ok=True)
-        csv_file = os.path.join(log_dir, "metrics.csv")
-        fieldnames = ['Epoch', 'Threshold', 'Precision', 'Recall', 'F1', 
-                    'TN', 'FP', 'FN', 'TP']
+        metrics = {
+            'threshold': round(best_threshold, 4),
+            'precision': round(precision, 4),
+            'recall': round(recall, 4),
+            'f1': round(f1, 4),
+            'confusion_matrix': cm
+        }
 
-        tn, fp, fn, tp = cm.ravel()
+        return metrics
 
+    def save_metrics(self, metrics, epoch):
+        """Save metrics to a CSV file"""
+        csv_file = os.path.join(self.log_dir, "metrics.csv")
+        fieldnames = ['Epoch', 'Threshold', 'Precision', 'Recall', 'F1', 'TN', 'FP', 'FN', 'TP']
+        tn, fp, fn, tp = metrics['confusion_matrix'].ravel()
         file_exists = os.path.isfile(csv_file)
+
         with open(csv_file, 'a', newline='') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             if not file_exists:
                 writer.writeheader()
             writer.writerow({
                 'Epoch': epoch,
-                'Threshold': round(best_threshold, 4),
-                'Precision': round(precision, 4),
-                'Recall': round(recall, 4),
-                'F1': round(f1, 4),
+                'Threshold': metrics['threshold'],
+                'Precision': metrics['precision'],
+                'Recall': metrics['recall'],
+                'F1': metrics['f1'],
                 'TN': tn,
                 'FP': fp,
                 'FN': fn,
                 'TP': tp
             })
 
-        return best_threshold
+    def evaluate_and_log(self, loader, epoch, dynamic_threshold=False):
+        """Evaluate the model on the given dataset and log the metrics"""
+        metrics = self.compute_metrics(loader, dynamic_threshold)
+        self.save_metrics(metrics, epoch)
+        return metrics['threshold']
