@@ -8,10 +8,11 @@ class Pretrainedmodel(nn.Module):
         self.model.fc = nn.Identity()
         self.global_pool = nn.AdaptiveAvgPool2d(1)
 
-        # Fully connected layer to have a simple binary classification problem
-        self.fc = nn.Linear(
-            in_features=2048,
-            out_features=num_classes
+        self.fc_layers = nn.Sequential(
+            nn.Linear(2048, 512),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(512, num_classes)
         )
 
     def forward(self, x):
@@ -28,8 +29,7 @@ class Pretrainedmodel(nn.Module):
         x4 = self.global_pool(x4)
         x4 = x4.view(x4.size(0), -1)
 
-        # Logic for simple binary classification problem
-        y = self.fc(x4)
+        y = self.fc_layers(x4)
 
         return y
 
@@ -37,7 +37,4 @@ class Pretrainedmodel(nn.Module):
     def from_pretrained(cls, model_name, num_classes=1):
         original_model = BigEarthNetv2_0_ImageClassifier.from_pretrained(model_name)
         encoder = original_model.model.vision_encoder
-        # print(f'Loaded vision encoder from {model_name}')
-        # print(encoder)
         return cls(model=encoder, num_classes=num_classes)
-
