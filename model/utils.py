@@ -66,17 +66,18 @@ def build_scheduler(config, optimizer, train_loader_length, current_epoch, total
 
 def calculate_positive_weight(data_dir, device, block_filaname):
     """Calculate positive weight for handling class imbalance."""
-    label_list = []
+    
     block_files = [
         os.path.join(data_dir, f)
         for f in sorted(os.listdir(data_dir))
-        if f.startswith(block_filaname.split("\{")[0])
-            and f.endswith(block_filaname.split("\{")[1])
+        if f.startswith(block_filaname.split("{")[0])
+            and f.endswith(block_filaname.split("}")[1])
     ]
 
     if len(block_files) == 0:
         raise ValueError("No label blocks found in directory. Check path and preprocessing.")
-
+    
+    label_list = []
     for block_file in block_files:
         with np.load(block_file) as block:
             labels = block["labels"]
