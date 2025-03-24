@@ -16,7 +16,7 @@ class Trainer:
         self.log_dir = log_dir
         os.makedirs(self.log_dir, exist_ok=True)
 
-    def run_epoch(self, loader, training=True):
+    def run_epoch(self, loader, training):
         """Run a single epoch of training or validation"""
         self.model.train() if training else self.model.eval()
         total_loss = 0.0

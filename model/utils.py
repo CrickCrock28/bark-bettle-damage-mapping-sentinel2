@@ -16,8 +16,7 @@ class FocalLoss(nn.Module):
         self.pos_weight = pos_weight
 
     def forward(self, inputs, targets):
-        # FIXME: check this implementation
-        # Compute Binary Cross-Entropy loss with logits (raw scores, no sigmoid applied yet)
+        # Compute Binary Cross-Entropy loss with logits
         # 'pos_weight' adjusts the weight of positive samples to address class imbalance
         BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none', pos_weight=self.pos_weight)
         
@@ -65,10 +64,15 @@ def build_scheduler(config, optimizer, train_loader_length, current_epoch, total
     else:
         raise ValueError(f"Unsupported scheduler: {scheduler_type}")
 
-def calculate_positive_weight(data_dir, device):
+def calculate_positive_weight(data_dir, device, block_filaname):
     """Calculate positive weight for handling class imbalance."""
     label_list = []
-    block_files = sorted(glob.glob(os.path.join(data_dir, "block_*.npz")))
+    block_files = [
+        os.path.join(data_dir, f)
+        for f in sorted(os.listdir(data_dir))
+        if f.startswith(block_filaname.split("\{")[0])
+            and f.endswith(block_filaname.split("\{")[1])
+    ]
 
     if len(block_files) == 0:
         raise ValueError("No label blocks found in directory. Check path and preprocessing.")
@@ -88,4 +92,5 @@ def calculate_positive_weight(data_dir, device):
         pos_weight = torch.tensor([counts[0] / counts[1]], device=device)
     else:
         pos_weight = torch.tensor([1.0], device=device)
+
     return pos_weight

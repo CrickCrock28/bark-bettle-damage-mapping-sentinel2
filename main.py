@@ -62,7 +62,7 @@ def main():
     freeze_backbone(model)
 
     # Load loss function, optimizer and scheduler
-    pos_weight = calculate_positive_weight(train_data_dir, device)
+    pos_weight = calculate_positive_weight(train_data_dir, device, config.filenames["block"])
     criterion = FocalLoss(pos_weight=pos_weight, gamma=2)
     optimizer = build_optimizer(config, model.parameters())
     scheduler = build_scheduler(config, optimizer, len(train_loader), 0, config.training["epochs"])
