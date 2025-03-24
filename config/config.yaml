@@ -27,7 +27,7 @@ dataset:
 training:
   batch_size: 32
   epochs: 10
-  warmup_epochs: 5
+  warmup_epochs: 0
   scheduler:
     type: CosineAnnealingLR
     T_max_factor: 1

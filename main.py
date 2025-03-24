@@ -4,7 +4,7 @@ from data.dataset_preprocessed import NPZSentinelDataset
 from model.model import Pretrainedmodel
 from config.config_loader import Config
 from model.trainer import Trainer
-from model.utils import freeze_backbone, unfreeze_backbone, build_optimizer, build_scheduler, calculate_positive_weight, FocalLoss
+from model.utils import freeze_backbone, unfreeze_backbone, build_optimizer, build_scheduler, calculate_positive_weight
 import warnings
 import gc
 from datetime import datetime
@@ -63,7 +63,8 @@ def main():
 
     # Load loss function, optimizer and scheduler
     pos_weight = calculate_positive_weight(train_data_dir, device, config.filenames["block"])
-    criterion = FocalLoss(pos_weight=pos_weight, gamma=2)
+    # criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    criterion = torch.nn.BCEWithLogitsLoss()
     optimizer = build_optimizer(config, model.parameters())
     scheduler = build_scheduler(config, optimizer, len(train_loader), 0, config.training["epochs"])
 

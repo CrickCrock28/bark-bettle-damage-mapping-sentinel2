@@ -11,14 +11,9 @@ class Pretrainedmodel(nn.Module):
         self.global_pool = nn.AdaptiveAvgPool2d(1)
 
         # Custom head for binary classification
-        self.fc_layers = nn.Sequential(
-            nn.Linear(2048, 1024),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(1024, 512),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(512, num_classes)
+        self.fc_layers = nn.Linear(
+            in_features=2048,
+            out_features=num_classes
         )
 
     def forward(self, x):

@@ -1,36 +1,8 @@
-import torch.nn as nn
-import torch.nn.functional as F
 import torch
 import os
-import glob
 import numpy as np
 from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
-
-class FocalLoss(nn.Module):
-    """Focal loss: helps handle class imbalance by reducing the loss contribution from easy examples and focusing on harder ones"""
-    def __init__(self, alpha=1, gamma=2, pos_weight=None):
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.pos_weight = pos_weight
-
-    def forward(self, inputs, targets):
-        # Compute Binary Cross-Entropy loss with logits
-        # 'pos_weight' adjusts the weight of positive samples to address class imbalance
-        BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none', pos_weight=self.pos_weight)
-        
-        # Apply sigmoid to convert logits to probabilities between 0 and 1
-        probs = torch.sigmoid(inputs)
-        
-        # Select the probability of the true class
-        pt = torch.where(targets == 1, probs, 1 - probs)
-        
-        # Compute the focal loss term
-        focal_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
-        
-        # Return the mean focal loss over the batch
-        return focal_loss.mean()
 
 def freeze_backbone(model):
     """Freeze the backbone of the model"""
