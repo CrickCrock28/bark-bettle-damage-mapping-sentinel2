@@ -18,7 +18,7 @@ class Pretrainedmodel(nn.Module):
             nn.Linear(1024, 512),
             nn.ReLU(),
             nn.Dropout(0.5),
-            nn.Linear(512, 1)
+            nn.Linear(512, num_classes)
         )
 
     def forward(self, x):

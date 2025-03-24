@@ -4,10 +4,10 @@ from data.dataset_preprocessed import NPZSentinelDataset
 from model.model import Pretrainedmodel
 from config.config_loader import Config
 from model.trainer import Trainer
-from model.utils import freeze_backbone, unfreeze_backbone, build_optimizer, build_scheduler, calculate_positive_weight
-from model.utils import FocalLoss
+from model.utils import freeze_backbone, unfreeze_backbone, build_optimizer, build_scheduler, calculate_positive_weight, FocalLoss
 import warnings
 import gc
+from datetime import datetime
 
 #FIXME workaround for the waning message
 warnings.filterwarnings("ignore", message="Keyword 'img_size' unknown*")
@@ -59,11 +59,11 @@ def main():
         num_classes=1
     ).to(device)
 
-    # freeze_backbone(model)
+    freeze_backbone(model)
 
     # Load loss function, optimizer and scheduler
     pos_weight = calculate_positive_weight(train_data_dir, device)
-    criterion = FocalLoss(pos_weight=pos_weight, gamma=0)
+    criterion = FocalLoss(pos_weight=pos_weight, gamma=2)
     optimizer = build_optimizer(config, model.parameters())
     scheduler = build_scheduler(config, optimizer, len(train_loader), 0, config.training["epochs"])
 
@@ -79,10 +79,11 @@ def main():
 
     epochs = config.training["epochs"]
     warmup_epochs = config.training["warmup_epochs"]
-    dynamic_threshold = config.training["dynamic_threshold"]
 
     try:
+        total_start = datetime.now()
         for epoch in range(epochs):
+            start_epoch = datetime.now()
             print(f"\nEpoch [{epoch+1}/{epochs}] starting...")
 
             if epoch == warmup_epochs:
@@ -97,8 +98,14 @@ def main():
 
             print(f"Epoch [{epoch+1}/{epochs}], Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}")
 
-            threshold = trainer.evaluate_and_log(test_loader, epoch=epoch+1, dynamic_threshold=dynamic_threshold)
-            print(f"===> Epoch [{epoch+1}] Threshold used: {threshold:.2f}")
+            trainer.evaluate_and_log(test_loader, epoch=epoch+1)
+            print(f"===> Epoch [{epoch+1}] completed.")
+            time_taken = datetime.now() - start_epoch
+            print(f"Time taken: {str(time_taken).split('.')[0]}")
+
+        total_time_taken = datetime.now() - total_start
+        print(f"Training completed. Total time taken: {str(total_time_taken).split('.')[0]}")
+
     finally:
         train_dataset.clear_memory()
         test_dataset.clear_memory()

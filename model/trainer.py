@@ -1,13 +1,12 @@
 import torch
 from tqdm import tqdm
-from sklearn.metrics import confusion_matrix, classification_report, precision_recall_curve
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 import csv
 import os
 
 class Trainer:
     """Trainer class to handle training and validation of the model."""
-    def __init__(self, model, criterion, optimizer, device, log_dir, scheduler=None, default_threshold=0.3):
+    def __init__(self, model, criterion, optimizer, device, log_dir, scheduler=None):
         """Initialize the Trainer class"""
         self.model = model
         self.criterion = criterion
@@ -15,7 +14,6 @@ class Trainer:
         self.device = device
         self.scheduler = scheduler
         self.log_dir = log_dir
-        self.default_threshold = default_threshold
         os.makedirs(self.log_dir, exist_ok=True)
 
     def run_epoch(self, loader, training=True):
@@ -54,7 +52,7 @@ class Trainer:
         return self.run_epoch(loader, training=False)
 
     @torch.no_grad()
-    def compute_metrics(self, loader, dynamic_threshold=False):
+    def compute_metrics(self, loader):
         """Compute metrics for the model on the given dataset"""
         self.model.eval()
         all_labels, all_probs = [], []
@@ -68,16 +66,7 @@ class Trainer:
             all_labels.extend(labels.cpu().numpy().astype(int).flatten())
 
         # Compute metrics
-        if dynamic_threshold:
-            precision, recall, thresholds = precision_recall_curve(all_labels, all_probs)
-            f1_scores = 2 * recall * precision / (recall + precision + 1e-8)
-            best_idx = f1_scores.argmax()
-            best_threshold = thresholds[best_idx]
-            print(f"Dynamic Threshold selected: {best_threshold:.2f}")
-        else:
-            best_threshold = self.default_threshold
-
-        all_preds = (torch.tensor(all_probs) > best_threshold).int().numpy()
+        all_preds = (torch.tensor(all_probs) > 0.5).int().numpy()
 
         cm = confusion_matrix(all_labels, all_preds)
         recall = recall_score(all_labels, all_preds)
@@ -90,7 +79,6 @@ class Trainer:
         print(f"===> Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}")
 
         metrics = {
-            'threshold': round(best_threshold, 4),
             'precision': round(precision, 4),
             'recall': round(recall, 4),
             'f1': round(f1, 4),
@@ -102,7 +90,7 @@ class Trainer:
     def save_metrics(self, metrics, epoch):
         """Save metrics to a CSV file"""
         csv_file = os.path.join(self.log_dir, "metrics.csv")
-        fieldnames = ['Epoch', 'Threshold', 'Precision', 'Recall', 'F1', 'TN', 'FP', 'FN', 'TP']
+        fieldnames = ['Epoch', 'Precision', 'Recall', 'F1', 'TN', 'FP', 'FN', 'TP']
         tn, fp, fn, tp = metrics['confusion_matrix'].ravel()
         file_exists = os.path.isfile(csv_file)
 
@@ -112,7 +100,6 @@ class Trainer:
                 writer.writeheader()
             writer.writerow({
                 'Epoch': epoch,
-                'Threshold': metrics['threshold'],
                 'Precision': metrics['precision'],
                 'Recall': metrics['recall'],
                 'F1': metrics['f1'],
@@ -122,8 +109,7 @@ class Trainer:
                 'TP': tp
             })
 
-    def evaluate_and_log(self, loader, epoch, dynamic_threshold=False):
+    def evaluate_and_log(self, loader, epoch):
         """Evaluate the model on the given dataset and log the metrics"""
-        metrics = self.compute_metrics(loader, dynamic_threshold)
+        metrics = self.compute_metrics(loader)
         self.save_metrics(metrics, epoch)
-        return metrics['threshold']
