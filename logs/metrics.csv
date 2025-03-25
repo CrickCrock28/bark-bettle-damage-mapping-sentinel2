@@ -1,0 +1,2 @@
+Epoch,Precision,Recall,F1,TN,FP,FN,TP
+1,0.0,0.0,0.0,162444,0,35809,0

@@ -25,13 +25,13 @@ def build_optimizer(config, model_params):
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_type}")
 
-def build_scheduler(config, optimizer, train_loader_length, current_epoch, total_epochs):
+def build_scheduler(config, optimizer, train_loader_length, current_epoch):
     """Build scheduler based on configuration."""
     scheduler_type = config.training["scheduler"]["type"]
-    T_max_factor = config.training["scheduler"].get("T_max_factor", 1)
+    T_max_factor = config.training["scheduler"]["T_max_factor"]
 
     if scheduler_type == "CosineAnnealingLR":
-        T_max = int(T_max_factor * (total_epochs - current_epoch) * train_loader_length)
+        T_max = int(T_max_factor * (config.training["epochs"] - current_epoch) * train_loader_length)
         return CosineAnnealingLR(optimizer, T_max=T_max)
     else:
         raise ValueError(f"Unsupported scheduler: {scheduler_type}")

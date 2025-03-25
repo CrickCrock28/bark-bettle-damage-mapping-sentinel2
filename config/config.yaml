@@ -20,7 +20,7 @@ channels:
 dataset:
   target_size: [224, 224]
   radius: 2
-  sampling_rate: 1
+  resize_mode: "pad"
   block_size: 100000
   num_workers: 0
 

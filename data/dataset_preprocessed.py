@@ -1,20 +1,25 @@
 import numpy as np
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset
 import os
 
 class NPZSentinelDataset(Dataset):
     """Dataset class for loading preprocessed Sentinel-2 patches from NPZ files."""
-    def __init__(self, data_dir, target_size=(64, 64)):
+    def __init__(self, data_dir, target_size, resize_mode):
         """Initializes the dataset."""
         self.data_dir = data_dir
         self.target_size = target_size
+        self.resize_mode = resize_mode
+
+        if resize_mode == "interpolate":
+            self.upsample = nn.Upsample(size=target_size, mode='bilinear', align_corners=False)
+
+        # Load all blocks into memory
         self.block_files = sorted([
             os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith(".npz")
         ])
         self.loaded_blocks = {}
-
-        # Load all blocks into memory
         for block_file in self.block_files:
             data = np.load(block_file)
             self.loaded_blocks[block_file] = {
@@ -45,6 +50,12 @@ class NPZSentinelDataset(Dataset):
 
         # Convert to PyTorch tensors
         patch = torch.from_numpy(patch).float()
+        if self.resize_mode == "interpolate":
+            patch = self.upsample(patch.unsqueeze(0)).squeeze(0)
+        elif self.resize_mode == "pad":
+            patch = pad_to_target_size(patch, self.target_size)
+        else:
+            raise ValueError("Invalid resize mode")
         label = torch.tensor(label).float().unsqueeze(0)
         
         return patch, label
@@ -52,3 +63,24 @@ class NPZSentinelDataset(Dataset):
     def clear_memory(self):
         """Clears loaded blocks from memory."""
         self.loaded_blocks.clear()
+
+def pad_to_target_size(img_tensor, target_size):
+    """Pads an image tensor to the target size."""
+
+    _, height, width = img_tensor.shape
+    padding_height = target_size[0] - height
+    padding_width = target_size[1] - width
+
+    img_tensor = nn.functional.pad(
+        img_tensor,
+        pad=(
+            padding_width // 2,
+            padding_width - padding_width // 2,
+            padding_height // 2,
+            padding_height - padding_height // 2
+        ),
+        mode='constant',
+        value=0
+    )
+
+    return img_tensor

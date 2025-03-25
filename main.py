@@ -29,12 +29,14 @@ def main():
 
     train_dataset = NPZSentinelDataset(
         data_dir=train_data_dir,
-        target_size=target_size
+        target_size=target_size,
+        resize_mode=config.dataset["resize_mode"]
     )
 
     test_dataset = NPZSentinelDataset(
         data_dir=test_data_dir,
-        target_size=target_size
+        target_size=target_size,
+        resize_mode=config.dataset["resize_mode"]
     )
 
     train_loader = DataLoader(
@@ -66,7 +68,7 @@ def main():
     # criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     criterion = torch.nn.BCEWithLogitsLoss()
     optimizer = build_optimizer(config, model.parameters())
-    scheduler = build_scheduler(config, optimizer, len(train_loader), 0, config.training["epochs"])
+    scheduler = build_scheduler(config, optimizer, len(train_loader), 0)
 
     # Trainer setup
     trainer = Trainer(
@@ -91,7 +93,7 @@ def main():
                 unfreeze_backbone(model)
                 optimizer = build_optimizer(config, model.parameters())
                 trainer.optimizer = optimizer
-                scheduler = build_scheduler(config, optimizer, len(train_loader), epoch, epochs)
+                scheduler = build_scheduler(config, optimizer, len(train_loader), epoch)
                 trainer.scheduler = scheduler
 
             train_loss = trainer.train_epoch(train_loader)
