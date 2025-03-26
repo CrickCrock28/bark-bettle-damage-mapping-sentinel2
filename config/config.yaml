@@ -1,8 +1,8 @@
 paths:
   train_mask_dir: "data/masks/train"
   test_mask_dir: "data/masks/test"
-  preprocessed_train_dir: "preprocessed/train"
-  preprocessed_test_dir: "preprocessed/test"
+  preprocessed_train_dir: "data/preprocessed/pad/train"
+  preprocessed_test_dir: "data/preprocessed/pad/test"
   sentinel_data_dirs:
     - "data/2019-09-01 - 2019-09-30/sentinel_2"
     - "data/2020-09-01 - 2020-09-30/sentinel_2"

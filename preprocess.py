@@ -4,6 +4,7 @@ import numpy as np
 import rasterio
 from tqdm import tqdm
 import time
+import torch.nn as nn
 
 from config.config_loader import Config
 
@@ -73,15 +74,50 @@ def load_data(mask_dir, sentinel_data_dirs, mask_filename_format, image_filename
 
     return image_paths, mask_paths
 
-
 def save_block(output_dir, patches, labels, block_idx, filename_format):
     """Save a block of patches to a .npz file."""
     filename = filename_format.format(id=block_idx)
     block_filepath = os.path.join(output_dir, filename)
     np.savez_compressed(block_filepath, patches=np.array(patches), labels=np.array(labels))
-    print(f"Saved {len(patches)} patches to {block_filepath}")
 
-def preprocess_images(image_paths, mask_paths, channels_order, radius, output_dir, block_size, filename_format):
+def pad_to_target_size(img_tensor, target_size):
+    """Pads an image tensor to the target size."""
+
+    _, height, width = img_tensor.shape
+    padding_height = target_size[0] - height
+    padding_width = target_size[1] - width
+
+    img_tensor = nn.functional.pad(
+        img_tensor,
+        pad=(
+            padding_width // 2,
+            padding_width - padding_width // 2,
+            padding_height // 2,
+            padding_height - padding_height // 2
+        ),
+        mode='constant',
+        value=0
+    )
+
+    return img_tensor
+
+def resize_image(image_tensor, target_size, resize_mode):
+    """Resize an image tensor to the target size."""
+
+    if resize_mode == "interpolate":
+        image_tensor = nn.Upsample(
+            size=target_size,
+            mode="bilinear",
+            align_corners=False
+        )(image_tensor.unsqueeze(0)).squeeze(0)
+    elif resize_mode == "pad":
+        image_tensor = pad_to_target_size(image_tensor, target_size)
+    else:
+        raise ValueError("Invalid resize mode")
+    
+    return image_tensor
+
+def preprocess_images(config, image_paths, mask_paths, channels_order, output_dir):
     """Preprocess images and masks, extracting patches and saving them to .npz files."""
     os.makedirs(output_dir, exist_ok=True)
     patch_buffer = []
@@ -90,8 +126,7 @@ def preprocess_images(image_paths, mask_paths, channels_order, radius, output_di
     total_patches = 0
 
     # Iterate over images and masks
-    for idx, (image_path, mask_path) in enumerate(zip(image_paths, mask_paths)):
-        print(f"\nProcessing image {idx+1}/{len(image_paths)}: {os.path.basename(image_path)}")
+    for idx, (image_path, mask_path) in enumerate(tqdm(zip(image_paths, mask_paths), total=len(image_paths), desc="Preprocessing images")):
 
         # Open image and mask
         with rasterio.open(image_path) as src_image, rasterio.open(mask_path) as src_mask:
@@ -100,28 +135,30 @@ def preprocess_images(image_paths, mask_paths, channels_order, radius, output_di
             height, width = src_image.shape
 
             image_tensor = torch.from_numpy(image).float()/10000
+            image_tensor = resize_image(image_tensor, config.dataset["target_size"], config.dataset["resize_mode"])
+
             mask_tensor = torch.from_numpy(mask).float()
 
             # Iterate over pixels
-            for row in tqdm(range(height), desc=f"Rows of image {idx+1}"):
+            for row in range(height):
                 for col in range(width):
                     pixel_idx = row * width + col
-                    patch = extract_pixel_patch(image_tensor, pixel_idx, radius)
+                    patch = extract_pixel_patch(image_tensor, pixel_idx, config.dataset["radius"])
                     label = mask_tensor[row, col].item()
                     patch_buffer.append(patch.numpy())
                     label_buffer.append(label)
                     total_patches += 1
 
                     # Save block if buffer is full
-                    if len(patch_buffer) >= block_size:
-                        save_block(output_dir, patch_buffer, label_buffer, block_idx, filename_format)
+                    if len(patch_buffer) >= config.dataset["block_size"]:
+                        save_block(output_dir, patch_buffer, label_buffer, block_idx, config.filenames["block"])
                         patch_buffer.clear()
                         label_buffer.clear()
                         block_idx += 1
     
     # Save remaining patches
     if patch_buffer:
-        save_block(output_dir, patch_buffer, label_buffer, block_idx, filename_format)
+        save_block(output_dir, patch_buffer, label_buffer, block_idx, config.filenames["block"])
 
     print(f"\nCompleted preprocessing. Total patches: {total_patches}")
 
@@ -135,10 +172,6 @@ def main():
     selected_channels = config.channels["selected"]
     channels_order = [current_channels.index(c) + 1 for c in selected_channels]
 
-    radius = config.dataset["radius"]
-    block_size = config.dataset["block_size"]
-    filename_format = config.filenames["block"]
-
     output_train_dir = config.paths["preprocessed_train_dir"]
     output_test_dir = config.paths["preprocessed_test_dir"]
 
@@ -150,8 +183,9 @@ def main():
         config.filenames["images"]
     )
 
-    print("\nStarting preprocessing TRAIN dataset...")
-    preprocess_images(train_images, train_masks, channels_order, radius, output_train_dir, block_size, filename_format)
+    # Preprocess train dataset
+    print("\nStarting preprocessing train dataset...")
+    preprocess_images(config, train_images, train_masks, channels_order, output_train_dir)
 
     # Load test dataset
     test_images, test_masks = load_data(
@@ -161,8 +195,9 @@ def main():
         config.filenames["images"]
     )
 
-    print("\nStarting preprocessing TEST dataset...")
-    preprocess_images(test_images, test_masks, channels_order, radius, output_test_dir, block_size, filename_format)
+    # Preprocess test dataset   
+    print("\nStarting preprocessing test dataset...")
+    preprocess_images(config, test_images, test_masks, channels_order, output_test_dir)
 
     print("\nPreprocessing completed.")
     print(f"Elapsed time: {time.time() - now:.2f} seconds")
