@@ -1,8 +1,8 @@
 paths:
   train_mask_dir: "data/masks/train"
   test_mask_dir: "data/masks/test"
-  preprocessed_train_dir: "data/preprocessed/pad/train"
-  preprocessed_test_dir: "data/preprocessed/pad/test"
+  preprocessed_train_dir: "data/preprocessed/interpolate/train"
+  preprocessed_test_dir: "data/preprocessed/interpolate/test"
   sentinel_data_dirs:
     - "data/2019-09-01 - 2019-09-30/sentinel_2"
     - "data/2020-09-01 - 2020-09-30/sentinel_2"
@@ -12,6 +12,8 @@ filenames:
   masks: "mask_{id}.tif"
   images: "geojson_{id}.tif"
   block: "block_{id}.npz"
+  metrics: "{split}_interpolate_metrics.csv"
+  best_model: "best_model.pth"
 
 channels:
   current: ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
@@ -20,7 +22,7 @@ channels:
 dataset:
   target_size: [224, 224]
   radius: 2
-  resize_mode: "pad"
+  resize_mode: "interpolate"
   block_size: 100000
   num_workers: 0
 

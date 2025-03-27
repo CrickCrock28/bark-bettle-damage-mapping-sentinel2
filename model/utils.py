@@ -29,7 +29,6 @@ def build_scheduler(config, optimizer, train_loader_length, current_epoch):
     """Build scheduler based on configuration."""
     scheduler_type = config.training["scheduler"]["type"]
     T_max_factor = config.training["scheduler"]["T_max_factor"]
-
     if scheduler_type == "CosineAnnealingLR":
         T_max = int(T_max_factor * (config.training["epochs"] - current_epoch) * train_loader_length)
         return CosineAnnealingLR(optimizer, T_max=T_max)

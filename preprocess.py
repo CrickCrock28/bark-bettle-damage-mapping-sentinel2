@@ -108,7 +108,7 @@ def resize_image(image_tensor, target_size, resize_mode):
         image_tensor = nn.Upsample(
             size=target_size,
             mode="bilinear",
-            align_corners=False
+            align_corners=False # FIXME check if this bool is correct
         )(image_tensor.unsqueeze(0)).squeeze(0)
     elif resize_mode == "pad":
         image_tensor = pad_to_target_size(image_tensor, target_size)
@@ -142,6 +142,7 @@ def preprocess_images(config, image_paths, mask_paths, channels_order, output_di
             # Iterate over pixels
             for row in range(height):
                 for col in range(width):
+                    # Extract patch and label
                     pixel_idx = row * width + col
                     patch = extract_pixel_patch(image_tensor, pixel_idx, config.dataset["radius"])
                     label = mask_tensor[row, col].item()
