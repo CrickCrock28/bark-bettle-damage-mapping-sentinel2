@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import torch.nn as nn
+from preprocess import resize_image
 from torch.utils.data import Dataset
 import os
 
@@ -36,17 +36,18 @@ class NPZSentinelDataset(Dataset):
         return len(self.indices)
 
     def __getitem__(self, idx):
-        """Returns a patch and label from the dataset."""        
+        """Returns a patch and label from the dataset."""
         # Get block file, block index and local index
         block_idx, local_idx = self.indices[idx]
         block_file = self.block_files[block_idx]
 
         # Load patch and label
         patch = self.loaded_blocks[block_file]["patches"][local_idx]
+        patch = torch.from_numpy(patch).float()
+        patch = resize_image(patch, (224,224), "pad") # FIXME config
         label = self.loaded_blocks[block_file]["labels"][local_idx]
 
         # Convert to PyTorch tensors
-        patch = torch.from_numpy(patch).float()
         label = torch.tensor(label).float().unsqueeze(0)
         
         return patch, label

@@ -135,8 +135,6 @@ def preprocess_images(config, image_paths, mask_paths, channels_order, output_di
             height, width = src_image.shape
 
             image_tensor = torch.from_numpy(image).float()/10000
-            image_tensor = resize_image(image_tensor, config.dataset["target_size"], config.dataset["resize_mode"])
-
             mask_tensor = torch.from_numpy(mask).float()
 
             # Iterate over pixels
@@ -145,8 +143,9 @@ def preprocess_images(config, image_paths, mask_paths, channels_order, output_di
                     # Extract patch and label
                     pixel_idx = row * width + col
                     patch = extract_pixel_patch(image_tensor, pixel_idx, config.dataset["radius"])
-                    label = mask_tensor[row, col].item()
+                    # patch_resized = resize_image(patch, config.dataset["target_size"], config.dataset["resize_mode"])
                     patch_buffer.append(patch.numpy())
+                    label = mask_tensor[row, col].item()
                     label_buffer.append(label)
                     total_patches += 1
 

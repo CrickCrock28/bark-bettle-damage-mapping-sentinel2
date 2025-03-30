@@ -2,3 +2,4 @@
 __pycache__/
 tempCodeRunnerFile.*
 data/preprocessed/*
+export.py
