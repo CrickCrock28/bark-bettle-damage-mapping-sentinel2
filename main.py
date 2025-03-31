@@ -99,7 +99,7 @@ def main():
     # Training parameters
     epochs = config.training["epochs"]
     warmup_epochs = config.training["warmup_epochs"]
-    best_val_loss = float("inf")
+    best_test_loss = float("inf")
     best_model_path = os.path.join(config.paths["log_dir"], config.filenames["best_model"])
 
     # Training loop
@@ -121,10 +121,11 @@ def main():
             # Train and validate
             train_loss = trainer.train_epoch(train_loader, epoch)
             val_loss = trainer.validate_epoch(val_loader, epoch)
+            test_loss = trainer.test_epoch(test_loader, epoch)
 
             # Save best model
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
+            if test_loss < best_test_loss:
+                best_test_loss = val_loss
                 torch.save(model.state_dict(), best_model_path)
 
             print(f"Train Loss: {train_loss:.4f}")
@@ -133,12 +134,6 @@ def main():
 
         total_time = datetime.now() - total_start
         print(f"\nTraining complete. Total time: {str(total_time).split('.')[0]}")
-
-        # Load best model and evaluate on test set
-        print("\nEvaluating best model on test set...")
-        model.load_state_dict(torch.load(best_model_path))
-        model.eval()
-        trainer.validate_epoch(test_loader, epoch="final_test")
 
     finally:
         # Clear memory

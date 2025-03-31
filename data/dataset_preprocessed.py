@@ -31,6 +31,9 @@ class NPZSentinelDataset(Dataset):
             for j in range(block_size):
                 self.indices.append((i, j))
 
+        self.indices = self.indices[:len(self.indices)//10]  # FIXME temporary reduction of dataset size
+
+
     def __len__(self):
         """Returns the number of patches in the dataset."""
         return len(self.indices)
