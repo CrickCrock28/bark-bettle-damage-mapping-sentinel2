@@ -118,11 +118,10 @@ def resize_image(image_tensor, target_size, resize_mode):
     return image_tensor
 
 def preprocess_images(config, image_paths, mask_paths, channels_order, output_dir):
-    """Preprocess images and masks, extracting patches and saving them to .npz files."""
+    """Preprocess images and masks, extracting patches and saving them in a single .npz file."""
     os.makedirs(output_dir, exist_ok=True)
-    patch_buffer = []
-    label_buffer = []
-    block_idx = 0
+    patches = []
+    labels = []
     total_patches = 0
 
     # Iterate over images and masks
@@ -140,25 +139,20 @@ def preprocess_images(config, image_paths, mask_paths, channels_order, output_di
             # Iterate over pixels
             for row in range(height):
                 for col in range(width):
+                    # Alternate pixels
+                    if (row + col) % 2 != 0:
+                        continue
                     # Extract patch and label
                     pixel_idx = row * width + col
                     patch = extract_pixel_patch(image_tensor, pixel_idx, config.dataset["radius"])
-                    # patch_resized = resize_image(patch, config.dataset["target_size"], config.dataset["resize_mode"])
-                    patch_buffer.append(patch.numpy())
+                    patches.append(patch.numpy())
                     label = mask_tensor[row, col].item()
-                    label_buffer.append(label)
+                    labels.append(label)
                     total_patches += 1
 
-                    # Save block if buffer is full
-                    if len(patch_buffer) >= config.dataset["block_size"]:
-                        save_block(output_dir, patch_buffer, label_buffer, block_idx, config.filenames["block"])
-                        patch_buffer.clear()
-                        label_buffer.clear()
-                        block_idx += 1
-    
-    # Save remaining patches
-    if patch_buffer:
-        save_block(output_dir, patch_buffer, label_buffer, block_idx, config.filenames["block"])
+    # Save all patches and labels in a single .npz file
+    block_filepath = os.path.join(output_dir, config.filenames["preprocessed"])
+    np.savez_compressed(block_filepath, patches=np.array(patches), labels=np.array(labels))
 
     print(f"\nCompleted preprocessing. Total patches: {total_patches}")
 

@@ -32,7 +32,8 @@ def main():
     full_train_dataset = NPZSentinelDataset(
         data_dir=train_data_dir,
         target_size=target_size,
-        resize_mode=config.dataset["resize_mode"]
+        resize_mode=config.dataset["resize_mode"],
+        preprocessed_filename=config.filenames["preprocessed"]
     )
     
     # Split full training set into train and validation sets
@@ -45,7 +46,8 @@ def main():
     test_dataset = NPZSentinelDataset(
         data_dir=test_data_dir,
         target_size=target_size,
-        resize_mode=config.dataset["resize_mode"]
+        resize_mode=config.dataset["resize_mode"],
+        preprocessed_filename=config.filenames["preprocessed"]
     )
 
     # Create data loaders
