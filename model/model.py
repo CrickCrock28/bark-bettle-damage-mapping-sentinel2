@@ -41,4 +41,5 @@ class Pretrainedmodel(nn.Module):
         """Load a pretrained model from the BigEarthNetv2.0 publication."""
         original_model = BigEarthNetv2_0_ImageClassifier.from_pretrained(model_name)
         encoder = original_model.model.vision_encoder
+        # print(encoder)
         return cls(model=encoder, num_classes=num_classes)

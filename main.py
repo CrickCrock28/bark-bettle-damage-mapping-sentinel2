@@ -29,22 +29,24 @@ def main():
     test_data_dir = config.paths["preprocessed_test_dir"]
 
     # Load train dataset
-    train_dataset = NPZSentinelDataset(
+    full_train_dataset = NPZSentinelDataset(
         data_dir=train_data_dir,
         target_size=target_size,
         resize_mode=config.dataset["resize_mode"]
     )
+    
+    # Split full training set into train and validation sets
+    total_train_len = len(full_train_dataset)
+    train_len = int(0.8 * total_train_len)
+    val_len = total_train_len - train_len
+    train_dataset, val_dataset = random_split(full_train_dataset, [train_len, val_len])
 
     # Load full test dataset and split into validation and test sets
-    full_test_dataset = NPZSentinelDataset(
+    test_dataset = NPZSentinelDataset(
         data_dir=test_data_dir,
         target_size=target_size,
         resize_mode=config.dataset["resize_mode"]
     )
-    total_len = len(full_test_dataset)
-    val_len = int(0.8 * total_len)
-    test_len = total_len - val_len
-    val_dataset, test_dataset = random_split(full_test_dataset, [val_len, test_len])
 
     # Create data loaders
     train_loader = DataLoader(
@@ -69,7 +71,7 @@ def main():
         pin_memory=True
     )
 
-    # Load and freeze thee model
+    # Load and freeze the model
     model = Pretrainedmodel.from_pretrained(
         config.model["pretrained_name"],
         num_classes=1
@@ -140,8 +142,8 @@ def main():
 
     finally:
         # Clear memory
-        train_dataset.clear_memory()
-        full_test_dataset.clear_memory()
+        full_train_dataset.clear_memory()
+        test_dataset.clear_memory()
         gc.collect()
 
 if __name__ == "__main__":
