@@ -6,13 +6,13 @@ paths:
   sentinel_data_dirs:
     - "data/2019-09-01 - 2019-09-30/sentinel_2"
     - "data/2020-09-01 - 2020-09-30/sentinel_2"
-  log_dir: "logs"
+  log_dir: "logs/none"
 
 filenames:
   masks: "mask_{id}.tif"
   images: "geojson_{id}.tif"
   preprocessed: "checkerboard.npz"
-  metrics: "{split}_interpolate_metrics.csv"
+  metrics: "{split}_metrics.csv"
   best_model: "best_model.pth"
 
 channels:
@@ -22,7 +22,7 @@ channels:
 dataset:
   target_size: [224, 224]
   radius: 2
-  resize_mode: "interpolate"
+  resize_mode: "none"
   num_workers: 0
 
 training:
@@ -32,12 +32,11 @@ training:
   scheduler:
     type: CosineAnnealingLR
     T_max_factor: 1
-
-optimizer:
-  type: Adam
-  params:
-    lr: 0.0005
-    weight_decay: 0.0001
+  optimizer:
+    type: Adam
+    params:
+      lr: 0.0005
+      weight_decay: 0.0001
 
 model:
   pretrained_name: "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0"

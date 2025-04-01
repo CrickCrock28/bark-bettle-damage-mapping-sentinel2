@@ -112,6 +112,8 @@ def resize_image(image_tensor, target_size, resize_mode):
         )(image_tensor.unsqueeze(0)).squeeze(0)
     elif resize_mode == "pad":
         image_tensor = pad_to_target_size(image_tensor, target_size)
+    elif resize_mode == "none":
+        pass
     else:
         raise ValueError("Invalid resize mode")
     
