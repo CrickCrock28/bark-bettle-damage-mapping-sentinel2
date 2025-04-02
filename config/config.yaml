@@ -12,7 +12,7 @@ filenames:
   masks: "mask_{id}.tif"
   images: "geojson_{id}.tif"
   preprocessed: "checkerboard.npz"
-  metrics: "{split}_metrics.csv"
+  metrics: "metrics.csv"
   best_model: "best_model.pth"
 
 channels:
@@ -26,9 +26,9 @@ dataset:
   num_workers: 0
 
 training:
-  batch_size: 32
-  epochs: 10
-  warmup_epochs: 0
+  batch_size: 512
+  epochs: 50
+  class_weights: [0.3, 0.7]
   scheduler:
     type: CosineAnnealingLR
     T_max_factor: 1

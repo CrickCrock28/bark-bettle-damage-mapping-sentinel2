@@ -108,7 +108,7 @@ def resize_image(image_tensor, target_size, resize_mode):
         image_tensor = nn.Upsample(
             size=target_size,
             mode="bilinear",
-            align_corners=False # FIXME check if this bool is correct
+            align_corners=True
         )(image_tensor.unsqueeze(0)).squeeze(0)
     elif resize_mode == "pad":
         image_tensor = pad_to_target_size(image_tensor, target_size)

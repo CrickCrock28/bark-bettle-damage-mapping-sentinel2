@@ -34,35 +34,3 @@ def build_scheduler(config, optimizer, train_loader_length, current_epoch):
         return CosineAnnealingLR(optimizer, T_max=T_max)
     else:
         raise ValueError(f"Unsupported scheduler: {scheduler_type}")
-
-def calculate_positive_weight(data_dir, device, block_filaname):
-    """Calculate positive weight for handling class imbalance."""
-    
-    block_files = [
-        os.path.join(data_dir, f)
-        for f in sorted(os.listdir(data_dir))
-        if f.startswith(block_filaname.split("{")[0])
-            and f.endswith(block_filaname.split("}")[1])
-    ]
-
-    if len(block_files) == 0:
-        raise ValueError("No label blocks found in directory. Check path and preprocessing.")
-    
-    label_list = []
-    for block_file in block_files:
-        with np.load(block_file) as block:
-            labels = block["labels"]
-            label_list.append(labels)
-
-    all_labels = np.concatenate(label_list)
-    counts = {
-        0: (all_labels == 0).sum(),
-        1: (all_labels == 1).sum(),
-    }
-
-    if counts[1] > 0:
-        pos_weight = torch.tensor([counts[0] / counts[1]], device=device)
-    else:
-        pos_weight = torch.tensor([1.0], device=device)
-
-    return pos_weight

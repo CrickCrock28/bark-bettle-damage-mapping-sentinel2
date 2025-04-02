@@ -3,6 +3,8 @@ from tqdm import tqdm
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 import csv
 import os
+from datetime import timedelta
+import time
 
 class Trainer:
     """Trainer class to handle training, validation and testing of the model."""
@@ -26,6 +28,7 @@ class Trainer:
         
         total_loss = 0.0
         all_labels, all_probs = [], []
+        start_time = time.time()
 
         # Progress bar
         loop = tqdm(loader, total=len(loader), desc=split.capitalize(), leave=False)
@@ -55,22 +58,36 @@ class Trainer:
 
         # Compute metrics
         all_preds = (torch.tensor(all_probs) > 0.5).int().numpy()
-        precision = precision_score(all_labels, all_preds, zero_division=0)
-        recall = recall_score(all_labels, all_preds, zero_division=0)
-        f1 = f1_score(all_labels, all_preds, zero_division=0)
         tn, fp, fn, tp = confusion_matrix(all_labels, all_preds).ravel()
 
+        # Per-class metrics
+        precision_per_class = precision_score(all_labels, all_preds, average=None, zero_division=0)
+        recall_per_class = recall_score(all_labels, all_preds, average=None, zero_division=0)
+        f1_per_class = f1_score(all_labels, all_preds, average=None, zero_division=0)
+
         # Write metrics to CSV
-        csv_path = os.path.join(self.log_dir, self.metrics_filename_format.format(split=split))
+        csv_path = os.path.join(self.log_dir, self.metrics_filename_format)
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
         write_header = not os.path.exists(csv_path)
         with open(csv_path, mode='a', newline='') as f:
             writer = csv.writer(f)
             if write_header:
-                writer.writerow(['Epoch', 'Loss', 'Precision', 'Recall', 'F1', 'TN', 'FP', 'FN', 'TP'])
-            writer.writerow([epoch, avg_loss, precision, recall, f1, tn, fp, fn, tp])
+                writer.writerow([
+                    'Epoch', 'Split', 'Loss',
+                    'Precision_1', 'Recall_1', 'F1_1',
+                    'Precision_0', 'Recall_0', 'F1_0',
+                    'TN', 'FP', 'FN', 'TP',
+                    'Time'
+                ])
+            writer.writerow([
+                epoch, split, f"{avg_loss:.4f}",                
+                f"{precision_per_class[1]:.4f}", f"{recall_per_class[1]:.4f}", f"{f1_per_class[1]:.4f}",
+                f"{precision_per_class[0]:.4f}", f"{recall_per_class[0]:.4f}", f"{f1_per_class[0]:.4f}",
+                tn, fp, fn, tp,
+                f"{timedelta(seconds=time.time() - start_time)}"
+            ])
 
-        return avg_loss
+        return f1_per_class[1]
 
     def train_epoch(self, loader, epoch):
         """Train the model for one epoch"""
