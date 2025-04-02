@@ -1,10 +1,10 @@
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from data.dataset_preprocessed import NPZSentinelDataset
 from model.model import Pretrainedmodel
 from config.config_loader import Config
 from model.trainer import Trainer
-from model.utils import freeze_backbone, unfreeze_backbone, build_optimizer, build_scheduler
+from model.utils import build_optimizer, build_scheduler
 import warnings
 import gc
 from datetime import datetime
@@ -76,13 +76,12 @@ def main():
     # Load and freeze the model
     model = Pretrainedmodel.from_pretrained(
         config.model["pretrained_name"],
-        num_classes=1
+        num_classes=2
     ).to(device)
-    freeze_backbone(model)
 
     # Loss function, optimizer, scheduler
-    pos_weight = torch.tensor(config.training["class_weights"][1]/config.training["class_weights"][0]).to(device)
-    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight) # FIXME this is correct or i should create a custom loss function?
+    class_weights = torch.tensor([config.training["class_weights"][0], config.training["class_weights"][1]]).to(device)
+    criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
     optimizer = build_optimizer(config, model.parameters())
     scheduler = build_scheduler(config, optimizer, len(train_loader), 0)
 
@@ -99,7 +98,6 @@ def main():
 
     # Training parameters
     epochs = config.training["epochs"]
-    warmup_epochs = config.training["warmup_epochs"]
     best_model_path = os.path.join(config.paths["log_dir"], config.filenames["best_model"])
     best_f1_val = 0.0
     best_f1_test = 0.0
@@ -112,14 +110,6 @@ def main():
         # Iterate over epochs
         for epoch in range(epochs):
             print(f"\nEpoch [{epoch+1}/{epochs}] starting...")
-
-            # Unfreeze backbone after warmup epochs
-            if epoch == warmup_epochs:
-                unfreeze_backbone(model)
-                optimizer = build_optimizer(config, model.parameters())
-                trainer.optimizer = optimizer
-                scheduler = build_scheduler(config, optimizer, len(train_loader), epoch)
-                trainer.scheduler = scheduler
 
             # Train and validate
             train_f1 = trainer.train_epoch(train_loader, epoch+1)

@@ -27,7 +27,7 @@ class Trainer:
         self.model.train() if split == "train" else self.model.eval()
         
         total_loss = 0.0
-        all_labels, all_probs = [], []
+        all_labels, all_preds = [], []
         start_time = time.time()
 
         # Progress bar
@@ -50,20 +50,17 @@ class Trainer:
             total_loss += loss.item()
             loop.set_postfix({'Batch Loss': loss.item()})
 
-            probs = torch.sigmoid(outputs).detach().cpu().numpy()
-            all_probs.extend(probs.flatten())
-            all_labels.extend(labels.cpu().numpy().astype(int).flatten())
+            preds = torch.argmax(outputs, dim=1).detach().cpu().numpy()
+            all_preds.extend(preds)
+            all_labels.extend(labels.cpu().numpy())
 
         avg_loss = total_loss / len(loader)
 
         # Compute metrics
-        all_preds = (torch.tensor(all_probs) > 0.5).int().numpy()
-        tn, fp, fn, tp = confusion_matrix(all_labels, all_preds).ravel()
-
-        # Per-class metrics
-        precision_per_class = precision_score(all_labels, all_preds, average=None, zero_division=0)
-        recall_per_class = recall_score(all_labels, all_preds, average=None, zero_division=0)
-        f1_per_class = f1_score(all_labels, all_preds, average=None, zero_division=0)
+        tn, fp, fn, tp = confusion_matrix(all_labels, all_preds, labels=[0, 1]).ravel()
+        precision_per_class = precision_score(all_labels, all_preds, average=None, zero_division=0, labels=[0,1])
+        recall_per_class = recall_score(all_labels, all_preds, average=None, zero_division=0, labels=[0,1])
+        f1_per_class = f1_score(all_labels, all_preds, average=None, zero_division=0, labels=[0,1])
 
         # Write metrics to CSV
         csv_path = os.path.join(self.log_dir, self.metrics_filename_format)

@@ -1,18 +1,5 @@
-import torch
-import os
-import numpy as np
 from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import CosineAnnealingLR
-
-def freeze_backbone(model):
-    """Freeze the backbone of the model"""
-    for param in model.model.parameters():
-        param.requires_grad = False
-
-def unfreeze_backbone(model):
-    """Unfreeze the backbone of the model"""
-    for param in model.model.parameters():
-        param.requires_grad = True
 
 def build_optimizer(config, model_params):
     """Build optimizer based on configuration."""

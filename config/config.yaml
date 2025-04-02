@@ -6,13 +6,13 @@ paths:
   sentinel_data_dirs:
     - "data/2019-09-01 - 2019-09-30/sentinel_2"
     - "data/2020-09-01 - 2020-09-30/sentinel_2"
-  log_dir: "logs/none"
+  log_dir: "logs"
 
 filenames:
   masks: "mask_{id}.tif"
   images: "geojson_{id}.tif"
   preprocessed: "checkerboard.npz"
-  metrics: "metrics.csv"
+  metrics: "512_03_07_metrics.csv"
   best_model: "best_model.pth"
 
 channels:

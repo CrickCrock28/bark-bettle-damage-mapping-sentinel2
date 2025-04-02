@@ -26,7 +26,7 @@ class NPZSentinelDataset(Dataset):
         """Returns a patch and label from the dataset."""
         patch = torch.from_numpy(self.patches[idx]).float()
         patch = resize_image(patch, self.target_size, self.resize_mode)
-        label = torch.tensor(self.labels[idx]).float().unsqueeze(0)
+        label = torch.tensor(int(self.labels[idx])).long()
         return patch, label
 
     def clear_memory(self):
