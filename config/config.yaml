@@ -6,14 +6,14 @@ paths:
   sentinel_data_dirs:
     - "data/2019-09-01 - 2019-09-30/sentinel_2"
     - "data/2020-09-01 - 2020-09-30/sentinel_2"
-  log_dir: "logs"
+  log_dir: "logs/patience_10"
 
 filenames:
   masks: "mask_{id}.tif"
   images: "geojson_{id}.tif"
   preprocessed: "checkerboard.npz"
-  metrics: "512_03_07_metrics.csv"
-  best_model: "best_model.pth"
+  metrics: "256_03_07_metrics.csv"
+  best_model: "256_03_07_best_model.pth"
 
 channels:
   current: ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
@@ -26,8 +26,9 @@ dataset:
   num_workers: 0
 
 training:
-  batch_size: 512
+  batch_size: 256
   epochs: 50
+  patience: 10
   class_weights: [0.3, 0.7]
   scheduler:
     type: CosineAnnealingLR

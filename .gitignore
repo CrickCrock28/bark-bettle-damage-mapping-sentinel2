@@ -2,5 +2,5 @@
 __pycache__/
 tempCodeRunnerFile.*
 data/preprocessed/*
-best_model.pth
+*.pth
 export.py

@@ -98,11 +98,11 @@ def main():
 
     # Training parameters
     epochs = config.training["epochs"]
+    patience = config.training["patience"]
     best_model_path = os.path.join(config.paths["log_dir"], config.filenames["best_model"])
     best_f1_val = 0.0
     best_f1_test = 0.0
     no_improve_epochs = 0
-    patience = 5
 
     # Training loop
     try:
