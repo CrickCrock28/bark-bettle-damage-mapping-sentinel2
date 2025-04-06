@@ -9,6 +9,7 @@ import warnings
 import gc
 from datetime import datetime
 import os
+import argparse
 
 # FIXME workaround for the warning message
 warnings.filterwarnings("ignore", message="Keyword 'img_size' unknown*")
@@ -19,9 +20,14 @@ def main():
     print(f"Using device: {device}")
     if device.type == 'cuda':
         print(f"GPU: {torch.cuda.get_device_name(0)}")
+        
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default=None, help='Path to the config file')
+    args = parser.parse_args()
 
     # Load configuration
-    config = Config()
+    config = Config(path=args.config) if args.config else Config()
 
     # Load datasets
     target_size = tuple(config.dataset["target_size"])
@@ -91,15 +97,16 @@ def main():
         criterion=criterion,
         optimizer=optimizer,
         device=device,
-        scheduler=scheduler,
-        log_dir=config.paths["log_dir"],
-        metrics_filename_format=config.filenames["metrics"]
+        results_dir=config.paths["results_dir"],
+        results_filename=config.filenames["results"],
+        experiment_name=config.training["experiment_name"],
+        scheduler=scheduler
     )
 
     # Training parameters
     epochs = config.training["epochs"]
     patience = config.training["patience"]
-    best_model_path = os.path.join(config.paths["log_dir"], config.filenames["best_model"])
+    best_model_path = os.path.join(config.paths["results_dir"], config.filenames["best_model"])
     best_f1_val = 0.0
     best_f1_test = 0.0
     no_improve_epochs = 0
@@ -112,9 +119,21 @@ def main():
             print(f"\nEpoch [{epoch+1}/{epochs}] starting...")
 
             # Train and validate
-            train_f1 = trainer.train_epoch(train_loader, epoch+1)
-            val_f1 = trainer.validate_epoch(val_loader, epoch+1)
-            test_f1 = trainer.test_epoch(test_loader, epoch+1)
+            train_metrics = trainer.train_epoch(train_loader)
+            val_metrics = trainer.validate_epoch(val_loader)
+            test_metrics = trainer.test_epoch(test_loader)
+
+            trainer.log_epoch_results(
+                epoch=epoch+1,
+                train_metrics=train_metrics,
+                val_metrics=val_metrics,
+                test_metrics=test_metrics,
+                experiment_name=config.training["experiment_name"]
+            )
+
+            # Extract metrics
+            test_f1 = test_metrics["F1_1"]
+            val_f1 = val_metrics["F1_1"]
 
             # Save best model
             if test_f1 > best_f1_test:
