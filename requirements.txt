@@ -49,3 +49,4 @@ yarl==1.18.3
 scikit-learn
 pandas
 openpyxl
+matplotlib

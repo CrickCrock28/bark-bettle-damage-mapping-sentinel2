@@ -79,7 +79,7 @@ def main():
         pin_memory=True
     )
 
-    # Load and freeze the model
+    # Load the model
     model = Pretrainedmodel.from_pretrained(
         config.model["pretrained_name"],
         num_classes=2
