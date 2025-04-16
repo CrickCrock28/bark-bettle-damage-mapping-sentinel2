@@ -5,6 +5,11 @@ from tqdm import tqdm
 from collections import Counter
 from src.pretrain.reben_publication.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifier
 import warnings
+from config.config_loader import Config
+from tqdm import tqdm
+import os
+
+config = Config()
 
 # FIXME workaround for the warning message
 warnings.filterwarnings("ignore", message="Keyword 'img_size' unknown*")
@@ -32,7 +37,6 @@ class_names = [
     "Urban fabric"
 ]
  # FIXME are them correct? https://bigearth.net/
-from tqdm import tqdm
 
 def classify_patches(patches, model):
     """Classify all patches at once using the pre-trained model, with progress bar."""
@@ -53,10 +57,21 @@ def classify_patches(patches, model):
     return preds.cpu().numpy()
 
 
+def plot_histogram(data, title, xlabel, ylabel, xticks_labels=None, save_path=None):
+    plt.figure(figsize=(12, 8) if xticks_labels else (5, 4))
+    plt.bar(range(len(data)), data, tick_label=xticks_labels)
+    plt.xticks(rotation=45, ha="right")
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path)
+    plt.show()
+
 # Load the preprocessed data
-# FIXME hardcoded
-data_2019 = np.load("data/preprocessed/2019-09-01 - 2019-09-30/test/filtered.npz")
-data_2020 = np.load("data/preprocessed/2020-09-01 - 2020-09-30/test/filtered.npz")
+data_2019 = np.load(os.path.join(config.paths["preprocessed_test_dir_2019"], config.filenames["preprocessed"]))
+data_2020 = np.load(os.path.join(config.paths["preprocessed_test_dir_2020"], config.filenames["preprocessed"]))
 
 patches_2019 = data_2019["patches"]
 patches_2020 = data_2020["patches"]
@@ -65,8 +80,7 @@ if patches_2019.shape != patches_2020.shape:
     raise ValueError(f"Shape mismatch: patches from 2019 have shape {patches_2019.shape}, while patches from 2020 have shape {patches_2020.shape}")
 
 # Load the pre-trained model
-# FIXME hardcoded
-model = BigEarthNetv2_0_ImageClassifier.from_pretrained("BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0")
+model = BigEarthNetv2_0_ImageClassifier.from_pretrained(config.model["pretrained_name"])
 
 # Classify the patches
 classes_2019 = classify_patches(patches_2019, model)
@@ -76,40 +90,34 @@ classes_2020 = classify_patches(patches_2020, model)
 change_labels = (classes_2019 != classes_2020).astype(np.uint8)  # 1 = changed, 0 = unchanged
 changed_counts = Counter(change_labels)
 
-# Histogram for the distribution of classes in 2019
-plt.figure(figsize=(12, 8))
-class_counts = Counter(classes_2019)
-# plt.bar(range(19), [class_counts[i] for i in range(19)], tick_label=[i for i in range(19)])
-plt.bar(range(19), [class_counts[i] for i in range(19)], tick_label=[class_names[i] for i in range(19)])
-plt.xticks(rotation=45, ha="right")
-plt.title("Distribution of classes (2019)")
-plt.xlabel("Class")
-plt.ylabel("Number of patches")
-plt.tight_layout()
-#FIXME hardcoded
-plt.savefig("result/class_distribution_2019.png")
-plt.show()
+class_counts_2019 = Counter(classes_2019)
+data_2019_hist = [class_counts_2019[i] for i in range(19)]
+plot_histogram(
+    data=data_2019_hist,
+    title="Distribution of classes (2019)",
+    xlabel="Class",
+    ylabel="Number of patches",
+    xticks_labels=[class_names[i] for i in range(19)],
+    save_path=os.path.join(config.paths["results_dir"], config.filenames["class_distribution"].format(year=2019))
+)
 
-# Histogram for the distribution of classes in 2020
-plt.figure(figsize=(12, 8))
-class_counts = Counter(classes_2020)
-# plt.bar(range(19), [class_counts[i] for i in range(19)], tick_label=[i for i in range(19)])
-plt.bar(range(19), [class_counts[i] for i in range(19)], tick_label=[class_names[i] for i in range(19)])
-plt.xticks(rotation=45, ha="right")
-plt.title("Distribution of classes (2020)")
-plt.xlabel("Class")
-plt.ylabel("Number of patches")
-plt.tight_layout()
-#FIXME hardcoded
-plt.savefig("result/class_distribution_2020.png")
-plt.show()
+class_counts_2020 = Counter(classes_2020)
+data_2020_hist = [class_counts_2020[i] for i in range(19)]
+plot_histogram(
+    data=data_2020_hist,
+    title="Distribution of classes (2020)",
+    xlabel="Class",
+    ylabel="Number of patches",
+    xticks_labels=[class_names[i] for i in range(19)],
+    save_path=os.path.join(config.paths["results_dir"], config.filenames["class_distribution"].format(year=2020))
+)
 
-# Histogram: changed vs unchanged patches
-plt.figure(figsize=(5, 4))
-plt.bar(["Healthy", "Damaged"], [changed_counts[0], changed_counts[1]], color=["green", "red"])
-plt.title("Patch Damaged vs Healthy")
-plt.ylabel("Number of patches")
-plt.tight_layout()
-#FIXME hardcoded
-plt.savefig("result/damage_vs_Healthy.png")
-plt.show()
+plot_histogram(
+    data=[changed_counts[0], changed_counts[1]],
+    title="Patch Damaged vs Healthy",
+    xlabel="",
+    ylabel="Number of patches",
+    xticks_labels=["Healthy", "Damaged"],
+    save_path=os.path.join(config.paths["results_dir"], config.filenames["damaged_vs_healthy"])
+)
+

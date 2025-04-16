@@ -6,11 +6,17 @@ paths:
   preprocessed_train_dir: "data/preprocessed/2020-09-01 - 2020-09-30/train"
   preprocessed_test_dir: "data/preprocessed/2020-09-01 - 2020-09-30/test"
   results_dir: "results"
+  # FIXME
+  preprocessed_test_dir_2019: "data/preprocessed/2019-09-01 - 2019-09-30/test"
+  preprocessed_test_dir_2020: "data/preprocessed/2020-09-01 - 2020-09-30/test"
+
 
 filenames:
   images: "geojson_{id}.tif"
   masks: "mask_{id}.tif"
   forest_masks: "geojson_{id}.tif"
+  class_distribution: "class_distribution_{year}.png"
+  damaged_vs_healthy: "damaged_vs_healthy.png"
   preprocessed: "filtered.npz"
   best_model: "best_model.pth"
   results: "results.xlsx"
