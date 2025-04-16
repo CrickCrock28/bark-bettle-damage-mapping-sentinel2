@@ -31,7 +31,7 @@ class_names = [
     "Transitional woodland, shrub",
     "Urban fabric"
 ]
- # FIXME are them correct?
+ # FIXME are them correct? https://bigearth.net/
 from tqdm import tqdm
 
 def classify_patches(patches, model):
@@ -86,7 +86,8 @@ plt.title("Distribution of classes (2019)")
 plt.xlabel("Class")
 plt.ylabel("Number of patches")
 plt.tight_layout()
-plt.savefig("class_distribution_2019.png")
+#FIXME hardcoded
+plt.savefig("result/class_distribution_2019.png")
 plt.show()
 
 # Histogram for the distribution of classes in 2020
@@ -99,7 +100,8 @@ plt.title("Distribution of classes (2020)")
 plt.xlabel("Class")
 plt.ylabel("Number of patches")
 plt.tight_layout()
-plt.savefig("class_distribution_2020.png")
+#FIXME hardcoded
+plt.savefig("result/class_distribution_2020.png")
 plt.show()
 
 # Histogram: changed vs unchanged patches
@@ -108,5 +110,6 @@ plt.bar(["Healthy", "Damaged"], [changed_counts[0], changed_counts[1]], color=["
 plt.title("Patch Damaged vs Healthy")
 plt.ylabel("Number of patches")
 plt.tight_layout()
-plt.savefig("damage_vs_Healthy.png")
+#FIXME hardcoded
+plt.savefig("result/damage_vs_Healthy.png")
 plt.show()

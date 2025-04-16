@@ -11,7 +11,7 @@ filenames:
   images: "geojson_{id}.tif"
   masks: "mask_{id}.tif"
   forest_masks: "geojson_{id}.tif"
-  preprocessed: "filtered.npz"
+  preprocessed: "all_data.npz"
   best_model: "best_model.pth"
   results: "results.xlsx"
 
@@ -30,7 +30,7 @@ training:
   epochs: 50
   patience: 25
   class_weights: [0.3, 0.7]
-  experiment_name: "128_03_07"
+  experiment_name: "unfiltered_128_03_07"
   scheduler:
     type: CosineAnnealingLR
     T_max_factor: 1

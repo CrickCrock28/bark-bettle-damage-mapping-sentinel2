@@ -26,11 +26,11 @@ dataset:
   num_workers: 0
 
 training:
-  batch_size: 128
+  batch_size: 256
   epochs: 50
   patience: 25
-  class_weights: [0.2, 0.8]
-  experiment_name: "128_02_08"
+  class_weights: [0.3, 0.7]
+  experiment_name: "filtered_256_03_07"
   scheduler:
     type: CosineAnnealingLR
     T_max_factor: 1
