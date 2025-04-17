@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from preprocess import resize_image
+from data.preprocess import resize_image
 from torch.utils.data import Dataset
 import os
 

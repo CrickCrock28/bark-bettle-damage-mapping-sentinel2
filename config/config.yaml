@@ -10,7 +10,6 @@ paths:
   preprocessed_test_dir_2019: "data/preprocessed/2019-09-01 - 2019-09-30/test"
   preprocessed_test_dir_2020: "data/preprocessed/2020-09-01 - 2020-09-30/test"
 
-
 filenames:
   images: "geojson_{id}.tif"
   masks: "mask_{id}.tif"
@@ -19,7 +18,7 @@ filenames:
   damaged_vs_healthy: "damaged_vs_healthy.png"
   preprocessed: "filtered.npz"
   best_model: "best_model.pth"
-  results: "results.xlsx"
+  results: "results2.xlsx"
 
 channels:
   current: ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
@@ -29,6 +28,7 @@ dataset:
   target_size: [224, 224]
   radius: 2
   resize_mode: "none"
+  use_forest_masks: true
   num_workers: 0
 
 training:

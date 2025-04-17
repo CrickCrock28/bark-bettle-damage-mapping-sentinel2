@@ -3,10 +3,7 @@ import torch
 import numpy as np
 import rasterio
 from tqdm import tqdm
-import time
 import torch.nn as nn
-
-from config.config_loader import Config
 
 def extract_pixel_patch(img_tensor, pixel_idx, radius):
     """Extract a patch centered at a pixel index from an image tensor."""
@@ -191,52 +188,3 @@ def preprocess_images(config, channels_order, output_dir, image_paths, mask_path
     # Save all patches and labels in a single .npz file
     block_filepath = os.path.join(output_dir, config.filenames["preprocessed"])
     np.savez_compressed(block_filepath, patches=np.array(patches), labels=np.array(labels))
-
-
-def main():
-    """Main function for preprocessing the dataset."""
-
-    config = Config()
-    now = time.time()
-
-    # Load configuration parameters
-    current_channels = config.channels["current"]
-    selected_channels = config.channels["selected"]
-    channels_order = [current_channels.index(c) + 1 for c in selected_channels]
-
-    output_train_dir = config.paths["preprocessed_train_dir"]
-    output_test_dir = config.paths["preprocessed_test_dir"]
-
-    # Load train dataset
-    train_images, train_masks, train_forests = load_data(
-        config.paths["sentinel_data_dir"],
-        config.filenames["images"],
-        config.paths["train_mask_dir"],
-        config.filenames["masks"]
-        # config.paths["forest_mask_dir"],
-        # config.filenames["forest_masks"]
-    )
-
-    # Preprocess train dataset
-    print("\nStarting preprocessing train dataset...")
-    preprocess_images(config, channels_order, output_train_dir, train_images, train_masks, train_forests)
-
-    # Load test dataset
-    test_images, test_masks, test_forests = load_data(
-        config.paths["sentinel_data_dir"],
-        config.filenames["images"],
-        config.paths["test_mask_dir"],
-        config.filenames["masks"]
-        # config.paths["forest_mask_dir"],
-        # config.filenames["forest_masks"]
-    )
-
-    # Preprocess test dataset
-    print("\nStarting preprocessing test dataset...")
-    preprocess_images(config, channels_order, output_test_dir, test_images, test_masks, test_forests)
-
-    print("\nPreprocessing completed.")
-    print(f"Elapsed time: {time.time() - now:.2f} seconds")
-
-if __name__ == "__main__":
-    main()

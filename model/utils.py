@@ -7,8 +7,6 @@ def build_optimizer(config, model_params):
     optimizer_params = config.training["optimizer"]["params"]
     if optimizer_type == "Adam":
         return Adam(model_params, **optimizer_params)
-    elif optimizer_type == "SGD":
-        return SGD(model_params, **optimizer_params)
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_type}")
 
