@@ -8,6 +8,7 @@ from model.model import Pretrainedmodel
 from model.trainer import Trainer
 import os
 from datetime import datetime
+from model.tester import ModelTester
 
 
 class Pipeline:
@@ -196,21 +197,18 @@ class Pipeline:
 
     def test(self):
         """Run test only"""
-        print("\nRunning test only...")
-        test_metrics = self.trainer.test_epoch(self.test_loader)
-        print("Test Metrics:", test_metrics)
+        tester = ModelTester(self.config)
+        tester.run_damage_detection()
 
     def run(self, do_preprocess=False, do_train=False, do_test=False):
         """Run the pipeline with the specified options"""
         if do_preprocess:
             self.preprocess()
-        if do_train or do_test:
+        if do_train:
             self.setup_datasets()
             self.setup_model()
-            if do_train:
-                self.train()
-            if do_test:
-                self.test()
-            # Clear memory
+            self.train()
             self.full_train_dataset.clear_memory()
             self.test_dataset.clear_memory()
+        if do_test:
+            self.test()

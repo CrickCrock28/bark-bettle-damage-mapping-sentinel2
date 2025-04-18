@@ -3,6 +3,9 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 import pandas as pd
 import os
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
 
 def build_optimizer(config, model_params):
     """Build optimizer based on configuration."""
@@ -77,3 +80,44 @@ def log_epoch_results(epoch, train_metrics, val_metrics, test_metrics, experimen
         # The file does not exist, create it
         with pd.ExcelWriter(results_path, engine='openpyxl') as writer:
             df_new.to_excel(writer, sheet_name=experiment_name, index=False)
+
+def classify_and_get_probs(patches, model):
+    """Classify patches and return both predictions and probabilities."""
+
+    # Use GPU if available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+
+    # Classify the patches and get probabilities
+    model.eval()
+    with torch.no_grad():
+        batch_tensor = torch.from_numpy(patches).float().to(device)
+        logits = model(batch_tensor)
+        probs = torch.softmax(logits, dim=1)
+        preds = torch.argmax(probs, dim=1)
+    return preds.cpu().numpy(), probs.cpu().numpy()
+
+def plot_histogram(data, title, xlabel, ylabel, xticks_labels=None, save_path=None):
+    """Plot a histogram of the data."""
+    plt.figure(figsize=(12, 8))
+    bars = plt.bar(range(len(data)), data, tick_label=xticks_labels)
+    plt.xticks(rotation=45, ha="right")
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2, yval + max(data)*0.01, f'{int(yval)}', ha='center', va='bottom')
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path)
+    plt.show()
+
+def compute_sam(v1, v2):
+    """Compute the Spectral Angle Mapper (SAM) between two sets of vectors."""
+    dot = np.sum(v1 * v2, axis=1)
+    norm1 = np.linalg.norm(v1, axis=1)
+    norm2 = np.linalg.norm(v2, axis=1)
+    cos_angle = np.clip(dot / (norm1 * norm2 + 1e-8), -1.0, 1.0)
+    return np.arccos(cos_angle)

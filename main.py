@@ -1,5 +1,9 @@
 from model.pipeline import Pipeline
 import argparse
+import warnings
+
+# FIXME workaround for the warning message
+warnings.filterwarnings("ignore", message="Keyword 'img_size' unknown*")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

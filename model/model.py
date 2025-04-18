@@ -1,5 +1,5 @@
 import torch.nn as nn
-from src.pretrain.reben_publication.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifier
+from model.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifier
 
 class Pretrainedmodel(nn.Module):
     """Pretrained model with custom head for binary classification."""
