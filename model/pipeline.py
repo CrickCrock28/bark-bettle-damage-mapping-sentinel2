@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader, Subset
 from config.config_loader import Config
 from data.dataset import NPZSentinelDataset
 from data.preprocess import preprocess_images, load_data
-from model.utils import build_optimizer, build_scheduler
+from model.utils import build_optimizer, build_scheduler, log_epoch_results
 from model.model import Pretrainedmodel
 from model.trainer import Trainer
 import os
@@ -171,12 +171,13 @@ class Pipeline:
             val_metrics = trainer.validate_epoch(self.val_loader)
             test_metrics = trainer.test_epoch(self.test_loader)
 
-            trainer.log_epoch_results(
+            log_epoch_results(
                 epoch+1,
                 train_metrics,
                 val_metrics,
                 test_metrics,
-                config.training["experiment_name"]
+                config.training["experiment_name"],
+                results_path=config.paths["results_dir"]
             )
 
             # Early stopping and model saving
