@@ -19,8 +19,25 @@ class Pipeline:
         if self.device.type == 'cuda':
             print(f"GPU: {torch.cuda.get_device_name(0)}")
 
+        if self.config.dataset["year"] == 2019:
+            self.sentinel_data_dir = self.config.paths["sentinel_data_dir_2019"]
+            self.preprocessed_train_dir = self.config.paths["preprocessed_train_dir_2019"]
+            self.preprocessed_test_dir = self.config.paths["preprocessed_test_dir_2019"]
+        elif self.config.dataset["year"] == 2020:
+            self.sentinel_data_dir = self.config.paths["sentinel_data_dir_2020"]
+            self.preprocessed_train_dir = self.config.paths["preprocessed_train_dir_2020"]
+            self.preprocessed_test_dir = self.config.paths["preprocessed_test_dir_2020"]
+        else:
+            raise ValueError("Invalid year specified in the configuration.")
+        
+        if self.config.dataset["use_forest_masks"]:
+            self.preprocessed_filename = self.config.filenames["preprocessed_all"]
+        else:
+            self.preprocessed_filename = self.config.filenames["preprocessed_filtered"]
+
         self.model = None
         self.trainer = None
+
         self.train_loader = None
         self.val_loader = None
         self.test_loader = None
@@ -35,28 +52,44 @@ class Pipeline:
         current_channels = config.channels["current"]
         selected_channels = config.channels["selected"]
         channels_order = [current_channels.index(c) + 1 for c in selected_channels]
-
+        
         # Load train dataset
         train_images, train_masks, train_forests = load_data(
-            sentinel_data_dir=config.paths["sentinel_data_dir"],
+            sentinel_data_dir=self.sentinel_data_dir,
             image_filename_format=config.filenames["images"],
             mask_dir=config.paths["train_mask_dir"],
             mask_filename_format=config.filenames["masks"],
             forest_mask_dir=config.paths["forest_mask_dir"] if config.dataset["use_forest_masks"] else None,
             forest_mask_filename_format=config.filenames["forest_masks"] if config.dataset["use_forest_masks"] else None
         )
-        preprocess_images(config, channels_order, config.paths["preprocessed_train_dir"], train_images, train_masks, train_forests)
+        preprocess_images(
+            channels_order,
+            self.preprocessed_train_dir,
+            self.preprocessed_filename,
+            self.config.dataset["radius"],
+            train_images,
+            train_masks,
+            train_forests
+        )
 
         # Test
         test_images, test_masks, test_forests = load_data(
-            config.paths["sentinel_data_dir"],
-            config.filenames["images"],
-            config.paths["test_mask_dir"],
-            config.filenames["masks"],
+            sentinel_data_dir=self.sentinel_data_dir,
+            image_filename_format=config.filenames["images"],
+            mask_dir=config.paths["test_mask_dir"],
+            mask_filename_format=config.filenames["masks"],
             forest_mask_dir=config.paths["forest_mask_dir"] if config.dataset["use_forest_masks"] else None,
             forest_mask_filename_format=config.filenames["forest_masks"] if config.dataset["use_forest_masks"] else None
         )
-        preprocess_images(config, channels_order, config.paths["preprocessed_test_dir"], test_images, test_masks, test_forests)
+        preprocess_images(
+            channels_order,
+            self.preprocessed_test_dir,
+            self.preprocessed_filename,
+            self.config.dataset["radius"],
+            test_images,
+            test_masks,
+            test_forests
+        )
 
         total_time = datetime.now() - now
         print(f"\nPreprocessing completed. Total time: {str(total_time).split('.')[0]}")
@@ -65,18 +98,14 @@ class Pipeline:
         """Load datasets"""
 
         config = self.config
-        
-        # Load train dataset
         target_size = tuple(config.dataset["target_size"])
-        train_data_dir = config.paths["preprocessed_train_dir"]
-        test_data_dir = config.paths["preprocessed_test_dir"]
 
         # Load train dataset
         full_train_dataset = NPZSentinelDataset(
-            data_dir=train_data_dir,
+            data_dir=self.preprocessed_train_dir,
             target_size=target_size,
             resize_mode=config.dataset["resize_mode"],
-            preprocessed_filename=config.filenames["preprocessed"]
+            preprocessed_filename=self.preprocessed_filename
         )
 
         # Split full training set into train and validation sets
@@ -86,12 +115,14 @@ class Pipeline:
 
         # Load full test dataset and split into validation and test sets
         test_dataset = NPZSentinelDataset(
-            data_dir=test_data_dir,
+            data_dir=self.preprocessed_test_dir,
             target_size=target_size,
             resize_mode=config.dataset["resize_mode"],
-            preprocessed_filename=config.filenames["preprocessed"]
+            preprocessed_filename=self.preprocessed_filename
         )
 
+        # Create DataLoader for train, validation, and test datasets
+        
         self.train_loader = DataLoader(
             train_dataset,
             batch_size=config.training["batch_size"],
@@ -144,7 +175,7 @@ class Pipeline:
             optimizer=optimizer,
             device=self.device,
             results_dir=config.paths["results_dir"],
-            results_filename=config.filenames["results"],
+            results_filename=config.filenames["metrics_results"],
             experiment_name=config.training["experiment_name"],
             scheduler=scheduler
         )
@@ -158,7 +189,7 @@ class Pipeline:
 
         # Training parameters
         patience = config.training["patience"]
-        best_model_path = os.path.join(config.paths["results_dir"], config.training["experiment_name"])
+        best_model_path = os.path.join(config.paths["results_dir"], config.training["experiment_name"]) + ".pth"
         best_f1_val = 0.0
         no_improve_epochs = 0
 
@@ -178,7 +209,7 @@ class Pipeline:
                 val_metrics,
                 test_metrics,
                 config.training["experiment_name"],
-                results_path=config.paths["results_dir"]
+                results_path=os.path.join(config.paths["results_dir"], config.filenames["metrics_results"])
             )
 
             # Early stopping and model saving

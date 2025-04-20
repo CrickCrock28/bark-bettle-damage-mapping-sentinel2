@@ -17,7 +17,7 @@ class ModelTester:
     def load_model(self):
         """Load the pre-trained model."""
         model = BigEarthNetv2_0_ImageClassifier.from_pretrained(self.config.model["pretrained_name"])
-        # model.load_state_dict(torch.load(os.path.join(self.config.paths["results_dir"], self.config.training["experiment_name"])))
+        model.load_state_dict(torch.load(os.path.join(self.config.paths["results_dir"], self.config.training["experiment_name"])+".pth"))
         return model.to(self.device)
 
     def load_data(self, npz_file):
@@ -28,8 +28,8 @@ class ModelTester:
     def run_damage_detection(self):
         """Load data, classify patches, and analyze changes."""
         # Load data
-        patches_2019, positions_2019, image_ids_2019 = self.load_data(os.path.join(self.config.paths["preprocessed_test_dir_2019"], self.config.filenames["preprocessed"]))
-        patches_2020, positions_2020, image_ids_2020 = self.load_data(os.path.join(self.config.paths["preprocessed_test_dir_2020"], self.config.filenames["preprocessed"]))
+        patches_2019, positions_2019, image_ids_2019 = self.load_data(os.path.join(self.config.paths["preprocessed_test_dir_2019"], self.config.filenames["preprocessed_filtered"]))#FIXME dinamic choise
+        patches_2020, positions_2020, image_ids_2020 = self.load_data(os.path.join(self.config.paths["preprocessed_test_dir_2020"], self.config.filenames["preprocessed_filtered"]))#FIXME dinamic choise
 
         if patches_2019.shape != patches_2020.shape:
             raise ValueError(f"Shape mismatch: patches from 2019 have shape {patches_2019.shape}, while patches from 2020 have shape {patches_2020.shape}")
@@ -51,8 +51,8 @@ class ModelTester:
         """Reconstruct images from patches and labels and save them."""
 
         # Create dir if it doesn't exist
-        path = os.path.join(self.config.paths['results_dir'], self.config.paths['results_damage_detection_dir'])
-        os.makedirs(path, exist_ok=True)
+        output_dir = os.path.join(self.config.paths['results_dir'], self.config.paths['results_damage_detection_dir'])
+        os.makedirs(output_dir, exist_ok=True)
         
         # Load channels order
         current_channels = self.config.channels["current"]
@@ -60,9 +60,9 @@ class ModelTester:
         channels_order = [current_channels.index(c) + 1 for c in selected_channels]
 
         # Loop through image_ids with progress bar
-        for image_id in tqdm(np.unique(image_ids), desc="Reconstructing images"):
+        for image_id in tqdm(image_ids, desc="Reconstructing images"):
             # Load the original image to get the shape
-            path = os.path.join(self.config.paths['sentinel_data_dir'], self.config.filenames['images'].format(id=image_id))
+            path = os.path.join(self.config.paths['sentinel_data_dir_2020'], self.config.filenames['images'].format(id=image_id))
             with rasterio.open(path) as src_image:
                 image = src_image.read(channels_order)
                 _, height, width = image.shape
@@ -79,7 +79,7 @@ class ModelTester:
                     result[row, col] = label
 
                 # Save the image
-                output_path = os.path.join(path, self.config.filenames['damage_detection_image'].format(id=image_id))
+                output_path = os.path.join(output_dir, self.config.filenames['damage_detection_image'].format(id=image_id))
                 profile = src_image.profile
                 profile.update({
                     'count': 1,

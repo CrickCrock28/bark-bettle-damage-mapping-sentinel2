@@ -131,7 +131,7 @@ def resize_image(image_tensor, target_size, resize_mode):
 
     return image_tensor
 
-def preprocess_images(config, channels_order, output_dir, image_paths, mask_paths, forest_paths=None):
+def preprocess_images(channels_order, output_dir, output_filename, radius, image_paths, mask_paths, forest_paths=None):
     """Preprocess images and masks, extracting patches and saving them in a single .npz file."""
 
     os.makedirs(output_dir, exist_ok=True)
@@ -183,7 +183,7 @@ def preprocess_images(config, channels_order, output_dir, image_paths, mask_path
 
                     # Extract patch and label
                     pixel_idx = row * width + col
-                    patch = extract_pixel_patch(image_tensor, pixel_idx, config.dataset["radius"])
+                    patch = extract_pixel_patch(image_tensor, pixel_idx, radius)
                     label = mask_tensor[row, col].item()
 
                     # Add data to lists
@@ -193,7 +193,7 @@ def preprocess_images(config, channels_order, output_dir, image_paths, mask_path
                     image_ids.append(image_id)
 
     # Save all patches and labels in a single .npz file
-    block_filepath = os.path.join(output_dir, config.filenames["preprocessed"])
+    block_filepath = os.path.join(output_dir, output_filename)
     np.savez_compressed(
         block_filepath,
         patches=np.array(patches),
