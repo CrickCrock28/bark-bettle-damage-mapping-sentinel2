@@ -1,10 +1,10 @@
 paths:
-  sentinel_data_dir: "data/2020-09-01 - 2020-09-30/sentinel_2"
+  sentinel_data_dir: "data/2019-09-01 - 2019-09-30/sentinel_2"
   train_mask_dir: "data/masks/train"
   test_mask_dir: "data/masks/test"
   forest_mask_dir: "data/label_forest_2022"
-  preprocessed_train_dir: "data/preprocessed/2020-09-01 - 2020-09-30/train"
-  preprocessed_test_dir: "data/preprocessed/2020-09-01 - 2020-09-30/test"
+  preprocessed_train_dir: "data/preprocessed/2019-09-01 - 2019-09-30/train"
+  preprocessed_test_dir: "data/preprocessed/2019-09-01 - 2019-09-30/test"
   results_dir: "results"
   results_damage_detection_dir: "damage_detection"
   # FIXME
@@ -17,7 +17,7 @@ filenames:
   forest_masks: "geojson_{id}.tif"
   class_distribution: "class_distribution_{year}.png"
   damaged_vs_healthy: "damaged_vs_healthy.png"
-  preprocessed: "all_data.npz"
+  preprocessed: "filtered.npz"
   best_model: "best_model.pth"
   results: "results2.xlsx"
   damage_detection_image: "damage_detection_{id}.tif"
@@ -30,7 +30,7 @@ dataset:
   target_size: [224, 224]
   radius: 2
   resize_mode: "none"
-  use_forest_masks: false
+  use_forest_masks: true
   num_workers: 0
 
 training:

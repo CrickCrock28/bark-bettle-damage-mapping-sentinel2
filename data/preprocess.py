@@ -137,6 +137,8 @@ def preprocess_images(config, channels_order, output_dir, image_paths, mask_path
     os.makedirs(output_dir, exist_ok=True)
     patches = []
     labels = []
+    positions = []
+    image_ids = []
 
     use_forest = forest_paths is not None
 
@@ -150,6 +152,7 @@ def preprocess_images(config, channels_order, output_dir, image_paths, mask_path
     for idx, items in enumerate(tqdm(iterator, total=len(image_paths), desc="Preprocessing images")):
         image_path = items[0]
         mask_path = items[1]
+        image_id = image_path.split(".")[0].split("_")[-1]
 
         # Open image and mask (and forest mask if present)
         with rasterio.open(image_path) as src_image, \
@@ -182,9 +185,19 @@ def preprocess_images(config, channels_order, output_dir, image_paths, mask_path
                     pixel_idx = row * width + col
                     patch = extract_pixel_patch(image_tensor, pixel_idx, config.dataset["radius"])
                     label = mask_tensor[row, col].item()
+
+                    # Add data to lists
                     patches.append(patch.numpy())
                     labels.append(label)
+                    positions.append((row, col))
+                    image_ids.append(image_id)
 
     # Save all patches and labels in a single .npz file
     block_filepath = os.path.join(output_dir, config.filenames["preprocessed"])
-    np.savez_compressed(block_filepath, patches=np.array(patches), labels=np.array(labels))
+    np.savez_compressed(
+        block_filepath,
+        patches=np.array(patches),
+        labels=np.array(labels),
+        positions=np.array(positions),
+        image_ids=np.array(image_ids)
+    )

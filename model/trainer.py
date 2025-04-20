@@ -31,7 +31,7 @@ class Trainer:
 
         # Progress bar
         loop = tqdm(loader, total=len(loader), desc=split.capitalize(), leave=False)
-        for images, labels in loop:
+        for images, labels, positions, image_ids in loop:
             images, labels = images.to(self.device), labels.to(self.device)
             
             if split == "train":

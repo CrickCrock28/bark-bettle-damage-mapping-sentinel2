@@ -17,7 +17,7 @@ filenames:
   forest_masks: "geojson_{id}.tif"
   class_distribution: "class_distribution_{year}.png"
   damaged_vs_healthy: "damaged_vs_healthy.png"
-  preprocessed: "all_data.npz"
+  preprocessed: "filtered.npz"
   best_model: "best_model.pth"
   results: "results2.xlsx"
   damage_detection_image: "damage_detection_{id}.tif"
@@ -30,7 +30,7 @@ dataset:
   target_size: [224, 224]
   radius: 2
   resize_mode: "none"
-  use_forest_masks: false
+  use_forest_masks: true
   num_workers: 0
 
 training:
