@@ -17,11 +17,11 @@ class ModelTester:
     def load_model(self):
         """Load the pre-trained model."""
         model = BigEarthNetv2_0_ImageClassifier.from_pretrained(self.config.model["pretrained_name"])
-        model.load_state_dict(torch.load(os.path.join(self.config.paths["results_dir"], self.config.training["experiment_name"])+".pth"))
+        # model.load_state_dict(torch.load(os.path.join(self.config.paths["results_dir"], self.config.training["experiment_name"])+".pth"))
         return model.to(self.device)
 
     def load_data(self, npz_file):
-        """Load the preprocessed data for 2019 and 2020."""
+        """Load the preprocessed data."""
         data = np.load(npz_file)
         return data["patches"], data["positions"], data["image_ids"]
 

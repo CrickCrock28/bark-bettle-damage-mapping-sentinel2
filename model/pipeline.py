@@ -3,8 +3,6 @@ from torch.utils.data import DataLoader, Subset
 from config.config_loader import Config
 from data.dataset import NPZSentinelDataset
 from data.preprocess import preprocess_images, load_data
-from model.utils import build_optimizer, build_scheduler, log_epoch_results
-from model.model import Pretrainedmodel
 from model.trainer import Trainer
 import os
 from datetime import datetime
@@ -13,9 +11,12 @@ from model.tester import ModelTester
 
 class Pipeline:
     def __init__(self, config_path):
+        
         self.config = Config(config_path)
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
+
         if self.device.type == 'cuda':
             print(f"GPU: {torch.cuda.get_device_name(0)}")
 
@@ -34,9 +35,6 @@ class Pipeline:
             self.preprocessed_filename = self.config.filenames["preprocessed_all"]
         else:
             self.preprocessed_filename = self.config.filenames["preprocessed_filtered"]
-
-        self.model = None
-        self.trainer = None
 
         self.train_loader = None
         self.val_loader = None
@@ -122,7 +120,6 @@ class Pipeline:
         )
 
         # Create DataLoader for train, validation, and test datasets
-        
         self.train_loader = DataLoader(
             train_dataset,
             batch_size=config.training["batch_size"],
@@ -148,83 +145,19 @@ class Pipeline:
         self.full_train_dataset = full_train_dataset
         self.test_dataset = test_dataset
 
-    def setup_model(self):
-        """Load model and set up training components"""
+    def train(self):
+        """Train the model"""        
 
-        config = self.config
-        
-        # Load the model
-        model = Pretrainedmodel.from_pretrained(
-            config.model["pretrained_name"],
-            num_classes=2
-        ).to(self.device)
-
-        # Loss function, optimizer, scheduler
-        class_weights = torch.tensor(config.training["class_weights"]).to(self.device)
-        criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
-        optimizer = build_optimizer(config, model.parameters())
-        scheduler = build_scheduler(config, optimizer, len(self.train_loader), 0)
-
-        # Set up the model
-        self.model = model
-
-        # Trainer setup
-        self.trainer = Trainer(
-            model=model,
-            criterion=criterion,
-            optimizer=optimizer,
-            device=self.device,
-            results_dir=config.paths["results_dir"],
-            results_filename=config.filenames["metrics_results"],
-            experiment_name=config.training["experiment_name"],
-            scheduler=scheduler
+        trainer = Trainer(
+            config=self.config
         )
 
-    def train(self):
-        """Train the model"""
-
-        config = self.config
-        trainer = self.trainer
-        model = self.model
-
-        # Training parameters
-        patience = config.training["patience"]
-        best_model_path = os.path.join(config.paths["results_dir"], config.training["experiment_name"]) + ".pth"
-        best_f1_val = 0.0
-        no_improve_epochs = 0
-
-        # Training loop
-        now = datetime.now()
-        for epoch in range(config.training["epochs"]):
-            print(f"\nEpoch [{epoch+1}/{config.training['epochs']}] starting...")
-
-            # Train and validate
-            train_metrics = trainer.train_epoch(self.train_loader)
-            val_metrics = trainer.validate_epoch(self.val_loader)
-            test_metrics = trainer.test_epoch(self.test_loader)
-
-            log_epoch_results(
-                epoch+1,
-                train_metrics,
-                val_metrics,
-                test_metrics,
-                config.training["experiment_name"],
-                results_path=os.path.join(config.paths["results_dir"], config.filenames["metrics_results"])
-            )
-
-            # Early stopping and model saving
-            if val_metrics["F1_1"] > best_f1_val:
-                best_f1_val = val_metrics["F1_1"]
-                no_improve_epochs = 0
-                torch.save(model.state_dict(), best_model_path)
-            else:
-                no_improve_epochs += 1
-                if no_improve_epochs >= patience:
-                    print(f"Early stopping triggered at epoch {epoch+1}.")
-                    break
-
-        total_time = datetime.now() - now
-        print(f"\nTraining complete. Total time: {str(total_time).split('.')[0]}")
+        trainer.train_model(
+            train_loader=self.train_loader,
+            val_loader=self.val_loader,
+            test_loader=self.test_loader,
+            config=self.config
+        )
 
     def test(self):
         """Run test only"""
@@ -237,7 +170,6 @@ class Pipeline:
             self.preprocess()
         if do_train:
             self.setup_datasets()
-            self.setup_model()
             self.train()
             self.full_train_dataset.clear_memory()
             self.test_dataset.clear_memory()
