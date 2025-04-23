@@ -44,12 +44,11 @@ def compute_epoch_metrics(labels, preds, loss, elapsed_time):
     metrics['Time'] = elapsed_time
     return metrics
 
-def compute_image_metrics(labels, preds, image_id, filter_applied):
+def compute_image_metrics(labels, preds, image_id):
     core_metrics = _compute_metrics(labels, preds)
     metrics = {
         'Image_ID': image_id,
-        'FT_Applied': filter_applied,
-        **core_metrics  # inserisce gli altri valori mantenendo il loro ordine
+        **core_metrics
     }
     return metrics
 
