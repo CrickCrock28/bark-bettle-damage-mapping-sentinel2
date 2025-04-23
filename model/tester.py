@@ -1,154 +1,107 @@
+import os
 import torch
 import numpy as np
-from collections import Counter
-import os
-from skimage.filters import threshold_otsu
-from model.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifier
-from model.utils import classify_and_get_probs, compute_sam, plot_histogram
+import pandas as pd
 import rasterio
 from tqdm import tqdm
+from skimage.filters import threshold_otsu
+from model.utils import classify_and_get_probs, compute_sam, compute_image_metrics
+from model.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifier
+
 
 class ModelTester:
-    def __init__(self, config):
+    def __init__(self, config, test_loaders):
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = self.load_model()
+        self.test_loaders = test_loaders
+        self.model = self.load_model().to(self.device)
 
     def load_model(self):
-        """Load the pre-trained model."""
         model = BigEarthNetv2_0_ImageClassifier.from_pretrained(self.config.model["pretrained_name"])
         # model.load_state_dict(torch.load(os.path.join(self.config.paths["results_dir"], self.config.training["experiment_name"])+".pth"))
         return model.to(self.device)
 
-    def load_data(self, npz_file):
-        """Load the preprocessed data."""
-        data = np.load(npz_file)
-        return data["patches"], data["positions"], data["image_ids"]
-
     def run_damage_detection(self):
-        """Load data, classify patches, and analyze changes."""
-        # Load data
-        patches_2019, positions_2019, image_ids_2019 = self.load_data(os.path.join(self.config.paths["preprocessed_test_dir_2019"], self.config.filenames["preprocessed_filtered"]))#FIXME dinamic choise
-        patches_2020, positions_2020, image_ids_2020 = self.load_data(os.path.join(self.config.paths["preprocessed_test_dir_2020"], self.config.filenames["preprocessed_filtered"]))#FIXME dinamic choise
+        results = []
+        for mode in ["filtered"]:#FIXME remove me, "all_data"]:
+            print(f"\n>> Processing {mode.upper()} dataset...")
+            loader_2019 = self.test_loaders[f"2019_{mode}_test"]
+            loader_2020 = self.test_loaders[f"2020_{mode}_test"]
+            metrics = self.evaluate_pair(loader_2019, loader_2020, mode)
+            results.extend(metrics)
 
-        if patches_2019.shape != patches_2020.shape:
-            raise ValueError(f"Shape mismatch: patches from 2019 have shape {patches_2019.shape}, while patches from 2020 have shape {patches_2020.shape}")
+        df = pd.DataFrame(results)
+        xlsx_path = os.path.join(self.config.paths["results_dir"], "damage_detection_results.xlsx")
+        df.to_excel(xlsx_path, index=False)
+        print(f"\n✅ Saved Excel file to: {xlsx_path}")
 
-        # Classify patches and get probabilities
-        preds_2019, probs_2019 = classify_and_get_probs(patches_2019, self.model)
-        preds_2020, probs_2020 = classify_and_get_probs(patches_2020, self.model)
+    def evaluate_pair(self, loader_2019, loader_2020, mode):
+        self.model.eval()
+        results = []
+        all_patches_2019, all_patches_2020 = [], []
+        all_positions, all_image_ids, all_labels = [], [], []
 
-        # Plot class distributions of classes for each year
-        self.plot_class_distributions(preds_2019, preds_2020)
+        for (patches_2019, labels_2019, positions_2019, image_ids_2019), (patches_2020, _, _, _) in tqdm(zip(loader_2019, loader_2020), total=len(loader_2019), desc=f"Evaluating {mode} pairs"):
+ 
+            all_patches_2019.append(patches_2019.numpy())
+            all_patches_2020.append(patches_2020.numpy())
+            all_positions.extend(positions_2019)
+            all_image_ids.extend(image_ids_2019)
+            all_labels.extend(labels_2019.numpy())
 
-        # Analyze changes between the two years using different methods
-        labels = self.analyze_changes(probs_2019, probs_2020)
+        all_patches_2019_np = np.concatenate(all_patches_2019)
+        all_patches_2020_np = np.concatenate(all_patches_2020)
+        positions = np.array(all_positions)
+        image_ids = np.array(all_image_ids)
+        all_labels = np.array(all_labels)
 
-        # Reconstruct images from patches and labels
-        self.reconstruct_images(labels, positions_2020, image_ids_2020)
+        _, probs_2019 = classify_and_get_probs(all_patches_2019_np, self.model)
+        _, probs_2020 = classify_and_get_probs(all_patches_2020_np, self.model)
 
-    def reconstruct_images(self, labels, positions, image_ids):
-        """Reconstruct images from patches and labels and save them."""
+        predicted_labels = self.get_otsu_labels(probs_2019, probs_2020)
 
-        # Create dir if it doesn't exist
-        output_dir = os.path.join(self.config.paths['results_dir'], self.config.paths['results_damage_detection_dir'])
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Load channels order
-        current_channels = self.config.channels["current"]
-        selected_channels = self.config.channels["selected"]
-        channels_order = [current_channels.index(c) + 1 for c in selected_channels]
+        for image_id in tqdm(np.unique(image_ids), desc=f"Saving {mode} results"):
 
-        # Loop through image_ids with progress bar
-        for image_id in tqdm(image_ids, desc="Reconstructing images"):
-            # Load the original image to get the shape
-            path = os.path.join(self.config.paths['sentinel_data_dir_2020'], self.config.filenames['images'].format(id=image_id))
-            with rasterio.open(path) as src_image:
-                image = src_image.read(channels_order)
-                _, height, width = image.shape
+            mask = image_ids == image_id
+            labels = predicted_labels[mask]
+            ground_truth_labels = all_labels[mask]
+            pos = positions[mask]
 
-                # Create an empty image
-                result = np.zeros((height, width), dtype=np.uint8)
-                
-                # Take the labels and positions for image_id
-                image_labels = labels[image_ids == image_id]
-                image_positions = positions[image_ids == image_id]
-                
-                # Set 1 where label == 1
-                for label, (row, col) in zip(image_labels, image_positions):
-                    result[row, col] = label
+            pred_img = self.reconstruct_image(image_id, pos, labels)
+            self.save_prediction_image(image_id, pred_img, mode)
 
-                # Save the image
-                output_path = os.path.join(output_dir, self.config.filenames['damage_detection_image'].format(id=image_id))
-                profile = src_image.profile
-                profile.update({
-                    'count': 1,
-                    'dtype': result.dtype,
-                    'nodata': 0
-                })
-                with rasterio.open(output_path, 'w', **profile) as dst:
-                    dst.write(result, 1)
+            metrics = compute_image_metrics(ground_truth_labels, labels, image_id, mode == "filtered")
+            results.append(metrics)
 
-
-    def plot_class_distributions(self, preds_2019, preds_2020):
-        """Plot the distribution of classes for each year."""
-        class_names = [
-            "Agro-forestry areas",
-            "Arable land",
-            "Beaches, dunes, sands",
-            "Broad-leaved forest",
-            "Coastal wetlands",
-            "Complex cultivation patterns",
-            "Coniferous forest",
-            "Industrial or commercial units",
-            "Inland waters",
-            "Inland wetlands",
-            "Land principally occupied\nby agriculture, with significant\nareas of natural vegetation",
-            "Marine waters",
-            "Mixed forest",
-            "Moors, heathland and\nsclerophyllous vegetation",
-            "Natural grassland and\nsparsely vegetated areas",
-            "Pastures",
-            "Permanent crops",
-            "Transitional woodland, shrub",
-            "Urban fabric"
-        ]
-        # FIXME are them correct? https://bigearth.net/
-        for year, preds in zip([2019, 2020], [preds_2019, preds_2020]):
-            counts = Counter(preds)
-            data_hist = [counts.get(i, 0) for i in range(19)]
-            plot_histogram(
-                data=data_hist,
-                title=f"Distribution of classes ({year})",
-                xlabel="Class",
-                ylabel="Number of patches",
-                xticks_labels=class_names,
-                save_path=os.path.join(self.config.paths["results_dir"], self.config.filenames["class_distribution"].format(year=year))
-            )
+        return results
 
     def get_otsu_labels(self, probs_2019, probs_2020):
-        """Compute Otsu's threshold for the given data."""
-        if self.config.testing['distance_metric'] == "euclidean":
+        if self.config.testing["distance_metric"] == "euclidean":
             scores = np.linalg.norm(probs_2019 - probs_2020, axis=1)
-        elif self.config.testing['distance_metric'] == "sam":
+        elif self.config.testing["distance_metric"] == "sam":
             scores = compute_sam(probs_2019, probs_2020)
         else:
-            raise ValueError(f"Unknown distance metric: {self.config.testing['distance_metric']}")
-        otsu_threshold = threshold_otsu(scores)
-        labels = (scores > otsu_threshold).astype(np.uint8)
-        return labels
+            raise ValueError("Unknown distance metric")
+        threshold = threshold_otsu(scores)
+        return (scores > threshold).astype(np.uint8)
 
+    def reconstruct_image(self, img_id, positions, values):
+        ref_path = os.path.join(self.config.paths["sentinel_data_dir_2020"], self.config.filenames["images"].format(id=img_id))
+        with rasterio.open(ref_path) as src:
+            _, h, w = src.read().shape
+        image = np.zeros((h, w), dtype=np.uint8)
+        for (r, c), v in zip(positions, values):
+            image[r, c] = v
+        return image
 
-    def analyze_changes(self, probs_2019, probs_2020):
-        """Analyze changes between two years."""
-        labels = self.get_otsu_labels(probs_2019, probs_2020)
-        plot_histogram(
-            data=[np.sum(labels == 0), np.sum(labels == 1)],
-            title=f"Healthy vs Damaged ({self.config.testing['distance_metric']} + Otsu)",
-            xlabel="",
-            ylabel="Number of patches",
-            xticks_labels=["Healthy", "Damaged"],
-            save_path=os.path.join(self.config.paths["results_dir"], "otsu_damaged.png")
-        )
-        return labels
+    def save_prediction_image(self, img_id, array, mode):
+        output_dir = os.path.join(self.config.paths["results_dir"], f"damage_pred_{mode}")
+        os.makedirs(output_dir, exist_ok=True)
+        out_path = os.path.join(output_dir, self.config.filenames["damage_detection_image"].format(id=img_id))
 
+        ref_path = os.path.join(self.config.paths["sentinel_data_dir_2020"], self.config.filenames["images"].format(id=img_id))
+        with rasterio.open(ref_path) as src:
+            profile = src.profile
+        profile.update({"count": 1, "dtype": array.dtype, "nodata": 0})
+        with rasterio.open(out_path, 'w', **profile) as dst:
+            dst.write(array, 1)

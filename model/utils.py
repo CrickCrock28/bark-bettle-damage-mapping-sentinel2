@@ -26,19 +26,33 @@ def build_scheduler(config, optimizer, train_loader_length, current_epoch):
     else:
         raise ValueError(f"Unsupported scheduler: {scheduler_type}")
 
-def compute_metrics(all_labels, all_preds, loss, time):
-    """Compute metrics from true and predicted labels"""
+def _compute_metrics(all_labels, all_preds):
+    """Compute precision, recall, f1 and confusion matrix"""
     tn, fp, fn, tp = confusion_matrix(all_labels, all_preds, labels=[0, 1]).ravel()
     precision = precision_score(all_labels, all_preds, average=None, zero_division=0, labels=[0, 1])
     recall = recall_score(all_labels, all_preds, average=None, zero_division=0, labels=[0, 1])
     f1 = f1_score(all_labels, all_preds, average=None, zero_division=0, labels=[0, 1])
     return {
-        'Loss': loss,
         'TN': tn, 'FP': fp, 'FN': fn, 'TP': tp,
         'Precision_0': precision[0], 'Recall_0': recall[0], 'F1_0': f1[0],
         'Precision_1': precision[1], 'Recall_1': recall[1], 'F1_1': f1[1],
-        'Time': time,
     }
+
+def compute_epoch_metrics(labels, preds, loss, elapsed_time):
+    metrics = _compute_metrics(labels, preds)
+    metrics['Loss'] = loss
+    metrics['Time'] = elapsed_time
+    return metrics
+
+def compute_image_metrics(labels, preds, image_id, filter_applied):
+    core_metrics = _compute_metrics(labels, preds)
+    metrics = {
+        'Image_ID': image_id,
+        'FT_Applied': filter_applied,
+        **core_metrics  # inserisce gli altri valori mantenendo il loro ordine
+    }
+    return metrics
+
 
 def log_epoch_results(epoch, train_metrics, val_metrics, test_metrics, experiment_name, results_path):
     """Log metrics for current epoch into an Excel sheet"""

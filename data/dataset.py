@@ -29,7 +29,7 @@ class NPZSentinelDataset(Dataset):
         patch = torch.from_numpy(self.patches[idx]).float()
         patch = resize_image(patch, self.target_size, self.resize_mode)
         label = torch.tensor(int(self.labels[idx])).long()
-        return patch, label, tuple(self.positions[idx]), self.image_ids[idx]
+        return patch, label, self.positions[idx], self.image_ids[idx]
 
     def clear_memory(self):
         """Clears loaded data from memory."""

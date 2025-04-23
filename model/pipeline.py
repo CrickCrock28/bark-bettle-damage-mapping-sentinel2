@@ -110,37 +110,47 @@ class Pipeline:
             preprocessed_filename=filename
         )
 
-    def setup_datasets(self):
-        """Load all 4 combinations of train/test datasets"""
+    def setup_training_dataloaders(self):
+        """Load the training dataset"""
+        year = self.config.dataset["year"]
+        filtered = self.config.dataset["use_forest_masks"]
+
+        # Train dataset and split into train/val
+        full_train_dataset = self.load_dataset(year, filtered, is_train=True)
+        train_len = int(0.8 * len(full_train_dataset))
+        train_subset = Subset(full_train_dataset, range(0, train_len))
+        val_subset = Subset(full_train_dataset, range(train_len, len(full_train_dataset)))
+
+        self.data_loaders["train"] = DataLoader(
+            train_subset,
+            batch_size=self.config.training["batch_size"],
+            shuffle=True,
+            num_workers=self.config.dataset["num_workers"],
+            pin_memory=True
+        )
+        self.data_loaders["val"] = DataLoader(
+            val_subset,
+            batch_size=self.config.training["batch_size"],
+            shuffle=False,
+            num_workers=self.config.dataset["num_workers"],
+            pin_memory=True
+        )
+
+        # Test dataset
+        test_dataset = self.load_dataset(year, filtered, is_train=False)
+        self.data_loaders[f"test"] = DataLoader(
+            test_dataset,
+            batch_size=self.config.training["batch_size"],
+            shuffle=False,
+            num_workers=self.config.dataset["num_workers"],
+            pin_memory=True
+        )
+
+    def setup_testing_dataloaders(self):
         for year in [2019, 2020]:
             for filtered in [True, False]:
                 key = f"{year}_{'filtered' if filtered else 'all_data'}"
-
-                # Train Dataset + split
-                full_train_dataset = self.load_dataset(year, filtered, is_train=True)
-                train_len = int(0.8 * len(full_train_dataset))
-                train_subset = Subset(full_train_dataset, range(0, train_len))
-                val_subset = Subset(full_train_dataset, range(train_len, len(full_train_dataset)))
-
-                self.datasets[f"{key}_full_train"] = full_train_dataset
-                self.data_loaders[f"{key}_train"] = DataLoader(
-                    train_subset,
-                    batch_size=self.config.training["batch_size"],
-                    shuffle=True,
-                    num_workers=self.config.dataset["num_workers"],
-                    pin_memory=True
-                )
-                self.data_loaders[f"{key}_val"] = DataLoader(
-                    val_subset,
-                    batch_size=self.config.training["batch_size"],
-                    shuffle=False,
-                    num_workers=self.config.dataset["num_workers"],
-                    pin_memory=True
-                )
-
-                # Test dataset
                 test_dataset = self.load_dataset(year, filtered, is_train=False)
-                self.datasets[f"{key}_test"] = test_dataset
                 self.data_loaders[f"{key}_test"] = DataLoader(
                     test_dataset,
                     batch_size=self.config.training["batch_size"],
@@ -151,40 +161,28 @@ class Pipeline:
 
     def train(self):
         """Train the model using the config-specified dataset"""
-        year = self.config.dataset["year"]
-        filtered = self.config.dataset["use_forest_masks"]
-        key = f"{year}_{'filtered' if filtered else 'all_data'}"
+        self.setup_training_dataloaders()
 
         trainer = Trainer(config=self.config)
         trainer.train_model(
-            train_loader=self.data_loaders[f"{key}_train"],
-            val_loader=self.data_loaders[f"{key}_val"],
-            test_loader=self.data_loaders[f"{key}_test"],
+            train_loader=self.data_loaders["train"],
+            val_loader=self.data_loaders["val"],
+            test_loader=self.data_loaders["test"],
             config=self.config
         )
 
     def test(self):
-        """Run test only"""
-        tester = ModelTester(self.config)
+        self.setup_testing_dataloaders()
+        tester = ModelTester(
+            config=self.config,
+            test_loaders={key: loader for key, loader in self.data_loaders.items() if key.endswith("_test")}
+        )
         tester.run_damage_detection()
-
-        
-    # def test(self):
-    #     """Test the model"""
-    #     tester = ModelTester(
-    #         config=self.config,
-    #         test_loaders={
-    #             key: loader for key, loader in self.data_loaders.items() if key.endswith("_test")
-    #         }
-    #     )
-    #     tester.run_damage_detection()
 
     def run(self, do_preprocess=False, do_train=False, do_test=False):
         """Run the pipeline with the specified options"""
         if do_preprocess:
             self.preprocess()
-        if do_train or do_test:
-            self.setup_datasets()
         if do_train:
             self.train()
         if do_test:

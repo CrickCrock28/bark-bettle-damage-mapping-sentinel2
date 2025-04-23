@@ -2,7 +2,7 @@ import torch
 from tqdm import tqdm
 import os
 from datetime import datetime
-from model.utils import compute_metrics, log_epoch_results, build_optimizer, build_scheduler
+from model.utils import compute_epoch_metrics, log_epoch_results, build_optimizer, build_scheduler
 from model.model import Pretrainedmodel
 
 class Trainer:
@@ -62,7 +62,7 @@ class Trainer:
 
         # Compute metrics
         elapsed_time = str(datetime.now() - start_time).split(".")[0]
-        metrics = compute_metrics(all_labels, all_preds, avg_loss, elapsed_time)
+        metrics = compute_epoch_metrics(all_labels, all_preds, avg_loss, elapsed_time)
         return metrics
 
     def train_epoch(self, loader):
