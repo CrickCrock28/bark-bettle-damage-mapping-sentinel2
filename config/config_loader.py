@@ -12,3 +12,4 @@ class Config:
         if name in self._config_data:
             return self._config_data[name]
         raise AttributeError(f"'Config' object has no attribute '{name}'")
+    

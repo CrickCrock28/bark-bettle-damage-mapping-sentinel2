@@ -7,7 +7,6 @@ from model.model import Pretrainedmodel
 
 class Trainer:
     """Trainer class to handle training, validation, testing, and full training loop."""
-
     def __init__(self, config):
         """Initialize the Trainer class and set up loss, optimizer, scheduler."""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -26,7 +25,6 @@ class Trainer:
 
     def run_epoch(self, loader, split):
         """Run a single epoch for training, validation or testing."""
-
         # Set model mode
         self.model.train() if split == "train" else self.model.eval()
 

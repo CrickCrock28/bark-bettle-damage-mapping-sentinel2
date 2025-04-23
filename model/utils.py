@@ -39,12 +39,17 @@ def _compute_metrics(all_labels, all_preds):
     }
 
 def compute_epoch_metrics(labels, preds, loss, elapsed_time):
-    metrics = _compute_metrics(labels, preds)
-    metrics['Loss'] = loss
-    metrics['Time'] = elapsed_time
+    """Compute metrics for the entire epoch"""
+    core_metrics = _compute_metrics(labels, preds)
+    metrics = {
+        **core_metrics,
+        'Loss': loss,
+        'Time': elapsed_time
+    }
     return metrics
 
 def compute_image_metrics(labels, preds, image_id):
+    """Compute metrics for a single image"""
     core_metrics = _compute_metrics(labels, preds)
     metrics = {
         'Image_ID': image_id,
@@ -94,9 +99,8 @@ def log_epoch_results(epoch, train_metrics, val_metrics, test_metrics, experimen
         with pd.ExcelWriter(results_path, engine='openpyxl') as writer:
             df_new.to_excel(writer, sheet_name=experiment_name, index=False)
 
-def classify_and_get_probs(patches, model):
+def classify_and_get_probs(patches, model): # FIXME preds not used
     """Classify patches and return both predictions and probabilities."""
-
     # Use GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -110,7 +114,7 @@ def classify_and_get_probs(patches, model):
         preds = torch.argmax(probs, dim=1)
     return preds.cpu().numpy(), probs.cpu().numpy()
 
-def plot_histogram(data, title, xlabel, ylabel, xticks_labels=None, save_path=None):
+def plot_histogram(data, title, xlabel, ylabel, xticks_labels=None, save_path=None): # FIXME not used
     """Plot a histogram of the data."""
     plt.figure(figsize=(12, 8))
     bars = plt.bar(range(len(data)), data, tick_label=xticks_labels)
@@ -121,7 +125,6 @@ def plot_histogram(data, title, xlabel, ylabel, xticks_labels=None, save_path=No
     for bar in bars:
         yval = bar.get_height()
         plt.text(bar.get_x() + bar.get_width()/2, yval + max(data)*0.01, f'{int(yval)}', ha='center', va='bottom')
-
     plt.tight_layout()
     if save_path:
         plt.savefig(save_path)

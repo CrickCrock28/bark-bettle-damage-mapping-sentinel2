@@ -7,7 +7,6 @@ import torch.nn as nn
 
 def extract_pixel_patch(img_tensor, pixel_idx, radius):
     """Extract a patch centered at a pixel index from an image tensor."""
-
     # Get pixel coordinates
     channels, height, width = img_tensor.shape
     row = pixel_idx // width
@@ -61,7 +60,6 @@ def get_mask_ids(mask_dir, mask_filename_format):
 
 def load_data(sentinel_data_dir, image_filename_format, mask_dir, mask_filename_format, forest_mask_dir=None, forest_mask_filename_format=None):
     """Load the paths of the images, masks, and optionally forest masks in the dataset."""
-
     # Get mask IDs
     mask_ids = get_mask_ids(mask_dir, mask_filename_format)
 
@@ -94,7 +92,6 @@ def save_block(output_dir, patches, labels, block_idx, filename_format):
 
 def pad_to_target_size(img_tensor, target_size):
     """Pads an image tensor to the target size."""
-
     _, height, width = img_tensor.shape
     padding_height = target_size[0] - height
     padding_width = target_size[1] - width
@@ -133,7 +130,6 @@ def resize_image(image_tensor, target_size, resize_mode):
 
 def preprocess_images(channels_order, output_dir, output_filename, radius, image_paths, mask_paths, forest_paths=None):
     """Preprocess images and masks, extracting patches and saving them in a single .npz file."""
-
     os.makedirs(output_dir, exist_ok=True)
     patches = []
     labels = []

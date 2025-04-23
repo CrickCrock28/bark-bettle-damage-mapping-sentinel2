@@ -10,8 +10,9 @@ from model.tester import ModelTester
 
 
 class Pipeline:
+    """Pipeline for processing Sentinel data, training, and testing a model."""
     def __init__(self, config_path):
-        
+        """Initialize the pipeline with the given configuration."""
         self.config = Config(config_path)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,7 +40,6 @@ class Pipeline:
 
     def preprocess(self):
         """Preprocess the dataset"""
-
         now = datetime.now()
         config = self.config
 
@@ -99,6 +99,7 @@ class Pipeline:
         print(f"\nPreprocessing completed. Total time: {str(total_time).split('.')[0]}")
 
     def load_dataset(self, year, filtered, is_train):
+        """Load the dataset for the specified year and filter"""
         paths = self._get_paths(year)
         filename = self._get_filename(filtered)
         data_dir = paths["preprocessed_train_dir"] if is_train else paths["preprocessed_test_dir"]
@@ -147,6 +148,7 @@ class Pipeline:
         )
 
     def setup_testing_dataloaders(self):
+        """Load the testing datasets"""
         for year in [2019, 2020]:
             for filtered in [True, False]:
                 key = f"{year}_{'filtered' if filtered else 'all_data'}"
@@ -172,10 +174,13 @@ class Pipeline:
         )
 
     def test(self):
+        """Test the model using the config-specified dataset"""
         self.setup_testing_dataloaders()
         tester = ModelTester(
             config=self.config,
-            test_loaders={key: loader for key, loader in self.data_loaders.items() if key.endswith("_test")}
+            test_loaders={
+                key: loader for key, loader in self.data_loaders.items() if key.endswith("_test")
+            }
         )
         tester.run_damage_detection()
 
