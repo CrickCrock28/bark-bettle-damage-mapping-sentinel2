@@ -31,16 +31,16 @@ dataset:
   target_size: [224, 224]
   radius: 2
   resize_mode: "none"
-  year: 2019
+  year: 2020
   use_forest_masks: true
   num_workers: 0
 
 training:
   batch_size: 256
-  epochs: 1
+  epochs: 50
   patience: 15
-  class_weights: [0.3, 0.7]
-  experiment_name: "256_03_07"
+  class_weights: [0.1, 0.9]
+  experiment_name: "filtered_256_01_09"
   scheduler:
     type: CosineAnnealingLR
     T_max_factor: 1

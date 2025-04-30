@@ -4,7 +4,6 @@ from config.config_loader import Config
 from data.dataset import NPZSentinelDataset
 from data.preprocess import preprocess_images, load_data
 from model.trainer import Trainer
-import os
 from datetime import datetime
 from model.tester import ModelTester
 

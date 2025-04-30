@@ -7,10 +7,10 @@ warnings.filterwarnings("ignore", message="Keyword 'img_size' unknown*")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default="config/config.yaml")
-    parser.add_argument('--preprocess', action='store_true')
-    parser.add_argument('--train', action='store_true')
-    parser.add_argument('--test', action='store_true')
+    parser.add_argument('--config', type=str, default="config/config.yaml", help='Path to the config file')
+    parser.add_argument('--preprocess', action='store_true', help='Preprocess the data')
+    parser.add_argument('--train', action='store_true', help='Train the model specified in the config file')
+    parser.add_argument('--test', action='store_true', help='Test the model specified in the config file')
     args = parser.parse_args()
 
     pipeline = Pipeline(config_path=args.config)

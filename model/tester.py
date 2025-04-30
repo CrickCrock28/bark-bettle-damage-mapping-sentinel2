@@ -7,7 +7,7 @@ from tqdm import tqdm
 from skimage.filters import threshold_otsu
 from model.utils import classify_and_get_probs, compute_sam, compute_image_metrics
 from model.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifier
-
+import matplotlib.pyplot as plt
 
 class ModelTester:
     """Class for testing the model on Sentinel data."""
@@ -28,12 +28,16 @@ class ModelTester:
         """Run damage detection on the test datasets and save results."""
         writer_path = os.path.join(self.config.paths["results_dir"], "damage_detection_results.xlsx")
         
+        results = []
+        for mode in ["filtered", "all_data"]:
+            loader_2019 = self.test_loaders[f"2019_{mode}_test"]
+            loader_2020 = self.test_loaders[f"2020_{mode}_test"]
+            metrics = self.evaluate_pair(loader_2019, loader_2020, mode)
+            df = pd.DataFrame(metrics)
+            results.append((mode, df))
+            
         with pd.ExcelWriter(writer_path, engine="openpyxl") as writer:
-            for mode in ["filtered", "all_data"]:
-                loader_2019 = self.test_loaders[f"2019_{mode}_test"]
-                loader_2020 = self.test_loaders[f"2020_{mode}_test"]
-                metrics = self.evaluate_pair(loader_2019, loader_2020, mode)
-                df = pd.DataFrame(metrics)
+            for mode, df in results:
                 df.to_excel(writer, sheet_name=mode, index=False)
 
     def evaluate_pair(self, loader_2019, loader_2020, mode):
@@ -43,7 +47,11 @@ class ModelTester:
         probs_2019_list, probs_2020_list = [], []
 
         # Iterate through the 2019 and 2020 loaders simultaneously
-        for (patches_2019, labels_2019, positions_2019, image_ids_2019), (patches_2020, _, _, _) in tqdm(zip(loader_2019, loader_2020), total=len(loader_2019), desc=f"Evaluating {mode} pairs"):
+        for (patches_2019, labels_2019, positions_2019, image_ids_2019), (patches_2020, _, _, image_ids_2020) in tqdm(zip(loader_2019, loader_2020), total=len(loader_2019), desc=f"Evaluating {mode} pairs"):
+
+            # Be sure that id is the same for both loaders
+            if image_ids_2019 != image_ids_2020:
+                raise ValueError("Image IDs do not match between 2019 and 2020 loaders.")
 
             # Use the model to classify the patches and get probabilities
             _, probs_2019 = classify_and_get_probs(patches_2019.numpy(), self.model)
