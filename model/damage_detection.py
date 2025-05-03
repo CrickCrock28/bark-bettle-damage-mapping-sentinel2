@@ -2,12 +2,10 @@ import os
 import torch
 import numpy as np
 import pandas as pd
-import rasterio
 from tqdm import tqdm
 from skimage.filters import threshold_otsu
-from model.utils import classify_and_get_probs, compute_sam, compute_image_metrics
+from model.utils import compute_sam, compute_sam_2, compute_image_metrics, reconstruct_image, save_prediction_image, insert_images_into_excel
 from model.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifier
-import matplotlib.pyplot as plt
 
 class DamageDetectionTester:
     """Class for testing the model on Sentinel data."""
@@ -19,42 +17,49 @@ class DamageDetectionTester:
         self.model = self.load_model().to(self.device)
 
     def load_model(self):
-        """Load the model from the specified path."""
+        """Load the model from the specified path and delete the last layer."""
         model = BigEarthNetv2_0_ImageClassifier.from_pretrained(self.config.model["pretrained_name"])
+        model.model.vision_encoder.fc = torch.nn.Identity()
         return model.to(self.device)
 
     def run_damage_detection(self):
         """Run damage detection on the test datasets and save results."""
-        writer_path = os.path.join(self.config.paths["results_dir"], "damage_detection_results.xlsx")
-        
+        writer_path = os.path.join(
+            self.config.paths["results_dir"],
+            "damage_detection_results.xlsx"
+        )
+        test_result_base_path = os.path.join(
+            self.config.paths["results_dir"],
+            self.config.paths["results_damage_detection_dir"]
+        )        
         results = []
         for mode in ["filtered", "all_data"]:
             loader_2019 = self.test_loaders[f"2019_{mode}_test"]
             loader_2020 = self.test_loaders[f"2020_{mode}_test"]
-            metrics = self.evaluate_pair(loader_2019, loader_2020, mode)
+            metrics = self.detect_damage(loader_2019, loader_2020, mode)
             df = pd.DataFrame(metrics)
             results.append((mode, df))
             
         with pd.ExcelWriter(writer_path, engine="openpyxl") as writer:
             for mode, df in results:
-                df.to_excel(writer, sheet_name=mode, index=False)
+                df.to_excel(writer, sheet_name=f"test_{mode}", index=False)
 
-    def evaluate_pair(self, loader_2019, loader_2020, mode):
+        insert_images_into_excel(writer_path, results, test_result_base_path, self.config.filenames["damage_detection_images"])
+
+    def detect_damage(self, loader_2019, loader_2020, mode):
         """Evaluate the model on a pair of datasets (2019 and 2020)."""
-        results = []
-        all_positions, all_image_ids, all_labels = [], [], []
-        probs_2019_list, probs_2020_list = [], []
+        results, all_positions, all_image_ids, all_labels, probs_2019_list, probs_2020_list = [], [], [], [], [], []
 
         # Iterate through the 2019 and 2020 loaders simultaneously
         for (patches_2019, labels_2019, positions_2019, image_ids_2019), (patches_2020, _, _, image_ids_2020) in tqdm(zip(loader_2019, loader_2020), total=len(loader_2019), desc=f"Evaluating {mode} pairs"):
 
-            # Be sure that id is the same for both loaders
+            # Ensure that id is the same for both loaders
             if image_ids_2019 != image_ids_2020:
                 raise ValueError("Image IDs do not match between 2019 and 2020 loaders.")
 
             # Use the model to classify the patches and get probabilities
-            _, probs_2019 = classify_and_get_probs(patches_2019.numpy(), self.model)
-            _, probs_2020 = classify_and_get_probs(patches_2020.numpy(), self.model)
+            probs_2019 = self.classify(patches_2019)
+            probs_2020 = self.classify(patches_2020)
             
             # Save batch results
             probs_2019_list.append(probs_2019)
@@ -73,6 +78,11 @@ class DamageDetectionTester:
         # Get the predicted labels using Otsu's method
         predicted_labels = self.get_otsu_labels(probs_2019_np, probs_2020_np)
 
+        output_dir = os.path.join(
+            self.config.paths["results_dir"],
+            self.config.paths["results_damage_detection_dir"],
+            mode
+        )
         # Iterate through unique image IDs
         for image_id in tqdm(np.unique(all_image_ids_np), desc=f"Saving {mode} results"):
             # Filter the results for the current image ID
@@ -82,8 +92,8 @@ class DamageDetectionTester:
             pos = all_positions_np[mask]
 
             # Reconstruct the image and save it
-            pred_img = self.reconstruct_image(image_id, pos, labels)
-            self.save_prediction_image(image_id, pred_img, mode)
+            pred_img = reconstruct_image(self.config, image_id, pos, labels)
+            save_prediction_image(self.config, output_dir, self.config.filenames["damage_detection_images"], image_id, pred_img)
 
             # Compute metrics for the image
             metrics = compute_image_metrics(ground_truth_labels, labels, image_id)
@@ -91,57 +101,26 @@ class DamageDetectionTester:
 
         return results
 
+    def classify(self, patches):
+        """Classify the patches using the model."""
+        self.model.eval()
+        with torch.no_grad():
+            batch_tensor = patches.float().to(self.device)
+            logits = self.model(batch_tensor)
+            probs = torch.softmax(logits, dim=1)
+        return probs.cpu().numpy()
+
     def get_otsu_labels(self, probs_2019, probs_2020):
         """"Get the predicted labels using Otsu's method."""
         if self.config.testing["distance_metric"] == "euclidean":
             scores = np.linalg.norm(probs_2019 - probs_2020, axis=1)
         elif self.config.testing["distance_metric"] == "sam":
             scores = compute_sam(probs_2019, probs_2020)
+            # FIXME choose one of the two functions and delete comments
+            # scores2 = compute_sam_2(probs_2019, probs_2020)
+            # print("Massima differenza", np.max(np.abs(scores - scores2))) # 3.189500421285629e-05
+            # print("Differenza media", np.mean(np.abs(scores - scores2))) # 1.2524034241127164e-06
         else:
-            raise ValueError("Unknown distance metric")
+            raise ValueError("Unknown distance metric, check the config file.")
         threshold = threshold_otsu(scores)
         return (scores > threshold).astype(np.uint8)
-
-    def reconstruct_image(self, img_id, positions, values):
-        """Reconstruct the image from the predicted labels."""
-        reference_path = os.path.join(
-            self.config.paths["sentinel_data_dir_2020"],
-            self.config.filenames["images"].format(id=img_id)
-        )
-        with rasterio.open(reference_path) as src:
-            _, h, w = src.read().shape
-        image = np.zeros((h, w), dtype=np.uint8)
-        for (r, c), v in zip(positions, values):
-            image[r, c] = v
-        return image
-
-    def save_prediction_image(self, img_id, array, mode):
-        """Save the predicted image."""
-        output_dir = os.path.join(
-            self.config.paths["results_dir"],
-            f"damage_pred_{mode}"
-        )
-        os.makedirs(output_dir, exist_ok=True)
-        out_path = os.path.join(
-            output_dir,
-            self.config.filenames["damage_detection_image"].format(id=img_id)
-        )
-
-        # Copy the profile from the reference image
-        reference_path = os.path.join(
-            self.config.paths["sentinel_data_dir_2020"],
-            self.config.filenames["images"].format(id=img_id)
-        )
-        with rasterio.open(reference_path) as src:
-            profile = src.profile
-
-        # Update the profile for the output image and save it
-        profile.update(
-            {
-                "count": 1,
-                "dtype": array.dtype,
-                "nodata": 0
-            }
-        )
-        with rasterio.open(out_path, 'w', **profile) as dst:
-            dst.write(array, 1)

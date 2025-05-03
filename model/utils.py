@@ -104,43 +104,38 @@ def log_epoch_results(epoch, train_metrics, val_metrics, test_metrics, experimen
         with pd.ExcelWriter(results_path, engine='openpyxl') as writer:
             df_new.to_excel(writer, sheet_name=experiment_name, index=False)
 
-def classify_and_get_probs(patches, model): # FIXME preds not used
-    """Classify patches and return both predictions and probabilities."""
-    # Use GPU if available
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
+def compute_sam(A,B): # FIXME choose one of the two functions
+    # A=utility.to_2d(A)
+    # B=utility.to_2d(B)
+    if (A.shape == B.shape):
+        # print("------SAM")
+        # print(A.shape)
+        row, k = A.shape
+        sam = np.zeros([row], float)
+        for i in range(row):
+            if (np.array_equal(A[i, :], B[i, :]) == True):
+                sam[i] = 0
+            else:
+                normT1 = np.linalg.norm(A[i, :])
+                normT2 = np.linalg.norm(B[i, :])
+                product = np.dot(A[i, :], B[i, :])
+                r = np.arccos(product / max((normT2 * normT1), 1e-5))
+                import math
+                if math.isnan(r):
+                    r = 0
+                sam[i] = r
+        return sam
+    else:
+        print("Can't calculate SAM, matrix dimensions are not equal:")
+        print("A = " + str(A.shape))
+        print("B = " + str(B.shape))
 
-    # Classify the patches and get probabilities
-    model.eval()
-    with torch.no_grad():
-        batch_tensor = torch.from_numpy(patches).float().to(device)
-        logits = model(batch_tensor)
-        probs = torch.softmax(logits, dim=1)
-        preds = torch.argmax(probs, dim=1)
-    return preds.cpu().numpy(), probs.cpu().numpy()
-
-def plot_histogram(data, title, xlabel, ylabel, xticks_labels=None, save_path=None): # FIXME not used
-    """Plot a histogram of the data."""
-    plt.figure(figsize=(12, 8))
-    bars = plt.bar(range(len(data)), data, tick_label=xticks_labels)
-    plt.xticks(rotation=45, ha="right")
-    plt.title(title)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    for bar in bars:
-        yval = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width()/2, yval + max(data)*0.01, f'{int(yval)}', ha='center', va='bottom')
-    plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path)
-    plt.show()
-
-def compute_sam(v1, v2):
+def compute_sam_2(v1, v2): # FIXME choose one of the two functions
     """Compute the Spectral Angle Mapper (SAM) between two sets of vectors."""
     dot = np.sum(v1 * v2, axis=1)
     norm1 = np.linalg.norm(v1, axis=1)
     norm2 = np.linalg.norm(v2, axis=1)
-    cos_angle = np.clip(dot / (norm1 * norm2 + 1e-8), -1.0, 1.0)
+    cos_angle = np.clip(dot / (norm1 * norm2 + 1e-10), -1.0, 1.0)
     return np.arccos(cos_angle)
 
 def reconstruct_image(config, img_id, positions, values):
@@ -156,24 +151,18 @@ def reconstruct_image(config, img_id, positions, values):
         image[r, c] = v
     return image
 
-def save_prediction_image(config, img_id, array, mode):
+def save_prediction_image(config, output_dir, filename_format, image_id, array):
     """Save the predicted image."""
-    output_dir = os.path.join(
-        config.paths["results_dir"],
-        config.paths["results_test_dir"],
-        config.training["experiment_name"],
-        mode
-    )
     os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(
         output_dir,
-        config.filenames["test_images"].format(id=img_id)
+        filename_format.format(id=image_id)
     )
 
     # Copy the profile from the reference image
     reference_path = os.path.join(
         config.paths["sentinel_data_dir_2020"],
-        config.filenames["images"].format(id=img_id)
+        config.filenames["images"].format(id=image_id)
     )
     with rasterio.open(reference_path) as src:
         profile = src.profile
@@ -189,8 +178,8 @@ def save_prediction_image(config, img_id, array, mode):
     with rasterio.open(out_path, 'w', **profile) as dst:
         dst.write(array, 1)
 
-def insert_images_into_excel(writer_path, results, base_path): #FIXME there is a better way?
-
+def insert_images_into_excel(writer_path, results, base_path, filename_format): #FIXME there is a better way?
+    """Insert images into the Excel file."""
     wb = load_workbook(writer_path)
     temp_pngs = []
 
@@ -198,7 +187,7 @@ def insert_images_into_excel(writer_path, results, base_path): #FIXME there is a
         ws = wb[f"test_{mode}"]
         for i, row in df.iterrows():
             image_id = row["Image_ID"]
-            tif_path = os.path.join(base_path, mode, f"test_{image_id}.tif")
+            tif_path = os.path.join(base_path, mode, filename_format.format(id=image_id))
             png_path = tif_path.replace(".tif", ".png")
 
             if os.path.exists(tif_path):

@@ -33,7 +33,10 @@ class ModelTester:
     
     def run_test(self):
         """Run the test on the model."""
-        writer_path = os.path.join(self.config.paths["results_dir"], self.config.filenames["metrics_results"])
+        writer_path = os.path.join(
+            self.config.paths["results_dir"],
+            self.config.filenames["metrics_results"]
+        )
         test_result_base_path = os.path.join(
             self.config.paths["results_dir"],
             self.config.paths["results_test_dir"],
@@ -51,8 +54,7 @@ class ModelTester:
             for mode, df in results:
                 df.to_excel(writer, sheet_name=f"test_{mode}", index=False)
 
-        # Insert images into the Excel file
-        insert_images_into_excel(writer_path, results, test_result_base_path)
+        insert_images_into_excel(writer_path, results, test_result_base_path, self.config.filenames["test_images"])
 
     def classify(self, patches):
         """Classify patches and return predictions."""
@@ -89,6 +91,12 @@ class ModelTester:
         all_labels_np = np.array(all_labels)
         all_preds_np = np.array(all_preds)
 
+        output_dir = os.path.join(
+            self.config.paths["results_dir"],
+            self.config.paths["results_test_dir"],
+            self.config.training["experiment_name"],
+            mode
+        )
         # Iterate through unique image IDs
         for image_id in tqdm(np.unique(all_image_ids_np), desc=f"Saving results"):
             # Filter the results for the current image ID
@@ -99,7 +107,7 @@ class ModelTester:
 
             # Reconstruct the image and save it
             pred_img = reconstruct_image(self.config, image_id, pos, labels)
-            save_prediction_image(self.config, image_id, pred_img, mode)
+            save_prediction_image(self.config, output_dir, self.config.filenames["test_images"], image_id, pred_img)
 
             # Compute metrics for the image
             metrics = compute_image_metrics(ground_truth_labels, labels, image_id)
