@@ -6,6 +6,12 @@ import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import rasterio
+from openpyxl.drawing.image import Image as ExcelImage
+from matplotlib import pyplot as plt
+import rasterio
+from openpyxl import load_workbook
+from PIL import Image as PILImage
 
 def build_optimizer(config, model_params):
     """Build optimizer based on configuration."""
@@ -56,7 +62,6 @@ def compute_image_metrics(labels, preds, image_id):
         **core_metrics
     }
     return metrics
-
 
 def log_epoch_results(epoch, train_metrics, val_metrics, test_metrics, experiment_name, results_path):
     """Log metrics for current epoch into an Excel sheet"""
@@ -137,3 +142,86 @@ def compute_sam(v1, v2):
     norm2 = np.linalg.norm(v2, axis=1)
     cos_angle = np.clip(dot / (norm1 * norm2 + 1e-8), -1.0, 1.0)
     return np.arccos(cos_angle)
+
+def reconstruct_image(config, img_id, positions, values):
+    """Reconstruct the image from the predicted labels."""
+    reference_path = os.path.join(
+        config.paths["sentinel_data_dir_2020"],
+        config.filenames["images"].format(id=img_id)
+    )
+    with rasterio.open(reference_path) as src:
+        _, h, w = src.read().shape
+    image = np.zeros((h, w), dtype=np.uint8)
+    for (r, c), v in zip(positions, values):
+        image[r, c] = v
+    return image
+
+def save_prediction_image(config, img_id, array, mode):
+    """Save the predicted image."""
+    output_dir = os.path.join(
+        config.paths["results_dir"],
+        config.paths["results_test_dir"],
+        config.training["experiment_name"],
+        mode
+    )
+    os.makedirs(output_dir, exist_ok=True)
+    out_path = os.path.join(
+        output_dir,
+        config.filenames["test_images"].format(id=img_id)
+    )
+
+    # Copy the profile from the reference image
+    reference_path = os.path.join(
+        config.paths["sentinel_data_dir_2020"],
+        config.filenames["images"].format(id=img_id)
+    )
+    with rasterio.open(reference_path) as src:
+        profile = src.profile
+
+    # Update the profile for the output image and save it
+    profile.update(
+        {
+            "count": 1,
+            "dtype": array.dtype,
+            "nodata": 0
+        }
+    )
+    with rasterio.open(out_path, 'w', **profile) as dst:
+        dst.write(array, 1)
+
+def insert_images_into_excel(writer_path, results, base_path): #FIXME there is a better way?
+
+    wb = load_workbook(writer_path)
+    temp_pngs = []
+
+    for mode, df in results:
+        ws = wb[f"test_{mode}"]
+        for i, row in df.iterrows():
+            image_id = row["Image_ID"]
+            tif_path = os.path.join(base_path, mode, f"test_{image_id}.tif")
+            png_path = tif_path.replace(".tif", ".png")
+
+            if os.path.exists(tif_path):
+                with rasterio.open(tif_path) as src:
+                    array = src.read(1)
+                plt.imsave(png_path, array, cmap="tab10")
+                temp_pngs.append(png_path)
+
+                if os.path.exists(png_path):
+                    with PILImage.open(png_path) as original:
+                        orig_width, orig_height = original.size
+                    target_height = 150
+                    scale = target_height / orig_height
+                    target_width = int(orig_width * scale)
+
+                    img = ExcelImage(png_path)
+                    img.height = target_height
+                    img.width = target_width
+
+                    excel_row = i + 2
+                    ws.row_dimensions[excel_row].height = 125
+                    ws.add_image(img, f"L{excel_row}")
+    wb.save(writer_path)
+
+    for path in temp_pngs:
+        os.remove(path)

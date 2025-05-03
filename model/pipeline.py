@@ -5,7 +5,8 @@ from data.dataset import NPZSentinelDataset
 from data.preprocess import preprocess_images, load_data
 from model.trainer import Trainer
 from datetime import datetime
-from model.tester import ModelTester
+from model.model_tester import ModelTester
+from model.damage_detection import DamageDetectionTester
 
 
 class Pipeline:
@@ -173,9 +174,21 @@ class Pipeline:
         )
 
     def test(self):
-        """Test the model using the config-specified dataset"""
+        """Test the model specified in the config file"""
         self.setup_testing_dataloaders()
         tester = ModelTester(
+            config=self.config,
+            test_loaders={
+                key: loader for key, loader in self.data_loaders.items() if key.startswith("2020") and key.endswith("_test")
+            }
+        )
+        tester.run_test()
+
+
+    def run_damage_detection(self):
+        """Test the model using the config-specified dataset"""
+        self.setup_testing_dataloaders()
+        tester = DamageDetectionTester(
             config=self.config,
             test_loaders={
                 key: loader for key, loader in self.data_loaders.items() if key.endswith("_test")
@@ -183,7 +196,7 @@ class Pipeline:
         )
         tester.run_damage_detection()
 
-    def run(self, do_preprocess=False, do_train=False, do_test=False):
+    def run(self, do_preprocess=False, do_train=False, do_test=False, do_damage_detection=False):
         """Run the pipeline with the specified options"""
         if do_preprocess:
             self.preprocess()
@@ -191,3 +204,5 @@ class Pipeline:
             self.train()
         if do_test:
             self.test()
+        if do_damage_detection:
+            self.run_damage_detection()

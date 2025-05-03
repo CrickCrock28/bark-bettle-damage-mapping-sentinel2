@@ -3,7 +3,7 @@ from model.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifie
 
 class Pretrainedmodel(nn.Module):
     """Pretrained model with custom head for binary classification."""
-    def __init__(self, model, num_classes=1):
+    def __init__(self, model, num_classes):
         """Initialize the model."""
         super().__init__()
         self.model = model

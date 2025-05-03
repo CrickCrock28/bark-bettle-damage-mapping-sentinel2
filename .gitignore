@@ -7,3 +7,4 @@ results/damage_pred_filtered/
 *.pth
 export.py
 validate_config.py
+results/test/

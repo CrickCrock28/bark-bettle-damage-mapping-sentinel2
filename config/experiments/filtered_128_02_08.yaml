@@ -9,6 +9,8 @@ paths:
   preprocessed_train_dir_2020: "data/preprocessed/2020-09-01 - 2020-09-30/train"
   preprocessed_test_dir_2020: "data/preprocessed/2020-09-01 - 2020-09-30/test"
   results_dir: "results"
+  results_models_dir: "models"
+  results_test_dir: "test"
   results_damage_detection_dir: "damage_detection"
 
 filenames:
@@ -19,9 +21,9 @@ filenames:
   damaged_vs_healthy: "damaged_vs_healthy.png"
   preprocessed_all: "all_data.npz"
   preprocessed_filtered: "filtered_data.npz"
-  best_model: "best_model.pth"
-  metrics_results: "results2.xlsx"
+  metrics_results: "results.xlsx"
   damage_detection_image: "damage_detection_{id}.tif"
+  test_images: "test_{id}.tif"
 
 channels:
   current: ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
@@ -55,3 +57,4 @@ testing:
 
 model:
   pretrained_name: "model/resnet50-s2-v0.2.0"
+  num_classes: 2

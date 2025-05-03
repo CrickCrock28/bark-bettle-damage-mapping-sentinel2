@@ -12,7 +12,7 @@ class Trainer:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = Pretrainedmodel.from_pretrained(
             config.model["pretrained_name"],
-            num_classes=2
+            num_classes=config.model["num_classes"]
         ).to(self.device)
         self.experiment_name = config.training["experiment_name"]
         self.results_path = os.path.join(config.paths["results_dir"], config.filenames["metrics_results"])
@@ -82,7 +82,7 @@ class Trainer:
 
         # Training parameters
         patience = config.training["patience"]
-        best_model_path = os.path.join(config.paths["results_dir"], config.training["experiment_name"] + ".pth")
+        best_model_path = os.path.join(config.paths["results_dir"], config.paths["results_models_dir"], config.training["experiment_name"] + ".pth")
         best_f1_val = 0.0
         no_improve_epochs = 0
 

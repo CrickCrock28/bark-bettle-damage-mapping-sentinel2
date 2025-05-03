@@ -9,7 +9,7 @@ from model.utils import classify_and_get_probs, compute_sam, compute_image_metri
 from model.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifier
 import matplotlib.pyplot as plt
 
-class ModelTester:
+class DamageDetectionTester:
     """Class for testing the model on Sentinel data."""
     def __init__(self, config, test_loaders):
         """Initialize the tester with the given configuration and test loaders."""
@@ -21,7 +21,6 @@ class ModelTester:
     def load_model(self):
         """Load the model from the specified path."""
         model = BigEarthNetv2_0_ImageClassifier.from_pretrained(self.config.model["pretrained_name"])
-        # model.load_state_dict(torch.load(os.path.join(self.config.paths["results_dir"], self.config.training["experiment_name"])+".pth"))
         return model.to(self.device)
 
     def run_damage_detection(self):
