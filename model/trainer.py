@@ -83,6 +83,7 @@ class Trainer:
         # Training parameters
         patience = config.training["patience"]
         best_model_path = os.path.join(config.paths["results_dir"], config.paths["results_models_dir"], config.training["experiment_name"] + ".pth")
+        os.makedirs(os.path.dirname(best_model_path), exist_ok=True)
         best_f1_val = 0.0
         no_improve_epochs = 0
 
