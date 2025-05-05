@@ -34,17 +34,25 @@ class DamageDetectionTester:
         )        
         results = []
         for mode in ["filtered", "all_data"]:
+            sheet_name = f"damage-detection_{mode}"
             loader_2019 = self.test_loaders[f"2019_{mode}_test"]
             loader_2020 = self.test_loaders[f"2020_{mode}_test"]
             metrics = self.detect_damage(loader_2019, loader_2020, mode)
             df = pd.DataFrame(metrics)
-            results.append((mode, df))
+            results.append((sheet_name, df))
             
         with pd.ExcelWriter(writer_path, engine="openpyxl") as writer:
-            for mode, df in results:
-                df.to_excel(writer, sheet_name=f"test_{mode}", index=False)
+            for sheet_name, df in results:
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-        insert_images_into_excel(writer_path, results, test_result_base_path, self.config.filenames["damage_detection_images"])
+        insert_images_into_excel(
+            writer_path,
+            results,
+            test_result_base_path,
+            self.config.filenames["damage_detection_images"],
+            self.config.paths["test_mask_dir"],
+            self.config.filenames["masks"]
+        )
 
     def detect_damage(self, loader_2019, loader_2020, mode):
         """Evaluate the model on a pair of datasets (2019 and 2020)."""

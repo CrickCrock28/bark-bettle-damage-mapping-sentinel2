@@ -177,39 +177,62 @@ def save_prediction_image(config, output_dir, filename_format, image_id, array):
     )
     with rasterio.open(out_path, 'w', **profile) as dst:
         dst.write(array, 1)
+        
+def insert_image_column(ws, df, image_base_path, filename_format, column_letter, column_name, temp_pngs): # FIXME there is a better way?
+    ws[f"{column_letter}1"] = column_name
+    for i, row in df.iterrows():
+        image_id = row["Image_ID"]
+        tif_path = os.path.join(image_base_path, filename_format.format(id=image_id))
+        png_path = tif_path.replace(".tif", ".png")
 
-def insert_images_into_excel(writer_path, results, base_path, filename_format): #FIXME there is a better way?
-    """Insert images into the Excel file."""
+        if os.path.exists(tif_path):
+            with rasterio.open(tif_path) as src:
+                array = src.read(1)
+            plt.imsave(png_path, array, cmap="tab10")
+            temp_pngs.add(png_path)
+
+            if os.path.exists(png_path):
+                with PILImage.open(png_path) as original:
+                    orig_width, orig_height = original.size
+                target_height = 150
+                scale = target_height / orig_height
+                target_width = int(orig_width * scale)
+
+                img = ExcelImage(png_path)
+                img.height = target_height
+                img.width = target_width
+
+                excel_row = i + 2
+                ws.row_dimensions[excel_row].height = 125
+                ws.add_image(img, f"{column_letter}{excel_row}")
+
+def insert_images_into_excel(writer_path, results, results_base_path, result_filename_format, ground_truth_base_path, ground_truth_filename_format):
+    """Insert result and ground truth images into the Excel file."""
     wb = load_workbook(writer_path)
-    temp_pngs = []
+    temp_pngs = set()
 
-    for mode, df in results:
-        ws = wb[f"test_{mode}"]
-        for i, row in df.iterrows():
-            image_id = row["Image_ID"]
-            tif_path = os.path.join(base_path, mode, filename_format.format(id=image_id))
-            png_path = tif_path.replace(".tif", ".png")
+    for sheet_name, df in results:
+        ws = wb[sheet_name]
+        subfolder = sheet_name.split("_", 1)[1]
+        insert_image_column(
+            ws,
+            df,
+            os.path.join(results_base_path, subfolder),
+            result_filename_format,
+            "L",
+            "Predictions",
+            temp_pngs
+        )
+        insert_image_column(
+            ws,
+            df,
+            ground_truth_base_path,
+            ground_truth_filename_format,
+            "M",
+            "Ground_truth",
+            temp_pngs
+        )
 
-            if os.path.exists(tif_path):
-                with rasterio.open(tif_path) as src:
-                    array = src.read(1)
-                plt.imsave(png_path, array, cmap="tab10")
-                temp_pngs.append(png_path)
-
-                if os.path.exists(png_path):
-                    with PILImage.open(png_path) as original:
-                        orig_width, orig_height = original.size
-                    target_height = 150
-                    scale = target_height / orig_height
-                    target_width = int(orig_width * scale)
-
-                    img = ExcelImage(png_path)
-                    img.height = target_height
-                    img.width = target_width
-
-                    excel_row = i + 2
-                    ws.row_dimensions[excel_row].height = 125
-                    ws.add_image(img, f"L{excel_row}")
     wb.save(writer_path)
 
     for path in temp_pngs:

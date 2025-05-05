@@ -42,19 +42,28 @@ class ModelTester:
             self.config.paths["results_test_dir"],
             self.config.training["experiment_name"]
         )
+
         results = []
         for mode in ["filtered", "all_data"]:
+            sheet_name = f"test_{mode}"
             loader = self.test_loaders[f"2020_{mode}_test"]
             metrics = self.evaluate(loader, mode)
             df = pd.DataFrame(metrics)
-            results.append((mode, df))
+            results.append((sheet_name, df))
         
         file_exists = os.path.exists(writer_path)
         with pd.ExcelWriter(writer_path, mode='a' if file_exists else 'w', engine='openpyxl', if_sheet_exists='replace' if file_exists else None) as writer:
-            for mode, df in results:
-                df.to_excel(writer, sheet_name=f"test_{mode}", index=False)
+            for sheet_name, df in results:
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-        insert_images_into_excel(writer_path, results, test_result_base_path, self.config.filenames["test_images"])
+        insert_images_into_excel(
+            writer_path,
+            results,
+            test_result_base_path,
+            self.config.filenames["test_images"],
+            self.config.paths["test_mask_dir"],
+            self.config.filenames["masks"]
+        )
 
     def classify(self, patches):
         """Classify patches and return predictions."""
