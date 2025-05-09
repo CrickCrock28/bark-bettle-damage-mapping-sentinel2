@@ -21,7 +21,7 @@ filenames:
   damaged_vs_healthy: "damaged_vs_healthy.png"
   preprocessed_all: "all_data.npz"
   preprocessed_filtered: "filtered_data.npz"
-  metrics_results: "results.xlsx"
+  metrics_results: "classification_results.xlsx"
   damage_detection_images: "damage_detection_{id}.tif"
   test_images: "test_{id}.tif"
 

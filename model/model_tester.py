@@ -9,11 +9,11 @@ from model.utils import insert_images_into_excel
 
 class ModelTester:
     """Class for testing the model on Sentinel data."""
-    def __init__(self, config, test_loaders):
+    def __init__(self, config, test_loader):
         """Initialize the tester with the given configuration and test loaders."""
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.test_loaders = test_loaders
+        self.test_loader = test_loader
         self.model = self.load_model().to(self.device)
 
     def load_model(self):
@@ -43,22 +43,19 @@ class ModelTester:
             self.config.training["experiment_name"]
         )
 
-        results = []
-        for mode in ["filtered", "all_data"]:
-            sheet_name = f"test_{mode}"
-            loader = self.test_loaders[f"2020_{mode}_test"]
-            metrics = self.evaluate(loader, mode)
-            df = pd.DataFrame(metrics)
-            results.append((sheet_name, df))
+        sheet_name = f"test_{self.config.training['experiment_name']}"
+        metrics = self.evaluate(self.test_loader)
+        metrics = [{k: round(v, 4) if isinstance(v, float) else v for k, v in metric.items()} for metric in metrics]
+        df = pd.DataFrame(metrics)
         
         file_exists = os.path.exists(writer_path)
         with pd.ExcelWriter(writer_path, mode='a' if file_exists else 'w', engine='openpyxl', if_sheet_exists='replace' if file_exists else None) as writer:
-            for sheet_name, df in results:
-                df.to_excel(writer, sheet_name=sheet_name, index=False)
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
 
         insert_images_into_excel(
             writer_path,
-            results,
+            df,
+            sheet_name,
             test_result_base_path,
             self.config.filenames["test_images"],
             self.config.paths["test_mask_dir"],
@@ -78,12 +75,12 @@ class ModelTester:
 
         return preds.cpu().numpy()
 
-    def evaluate(self, loader, mode):
+    def evaluate(self, loader):
         """Evaluate the model on a dataset."""
         results, all_positions, all_image_ids, all_labels, all_preds = [], [], [], [], []
 
         # Iterate through the data loader
-        for (patches, labels, positions, image_ids) in tqdm(loader, total=len(loader), desc=f"Evaluating {mode} dataset"):
+        for (patches, labels, positions, image_ids) in tqdm(loader, total=len(loader), desc=f"Evaluating"):
 
             # Use the model to classify the patches
             preds = self.classify(patches)
@@ -103,8 +100,7 @@ class ModelTester:
         output_dir = os.path.join(
             self.config.paths["results_dir"],
             self.config.paths["results_test_dir"],
-            self.config.training["experiment_name"],
-            mode
+            self.config.training["experiment_name"]
         )
         # Iterate through unique image IDs
         for image_id in tqdm(np.unique(all_image_ids_np), desc=f"Saving results"):
@@ -116,9 +112,13 @@ class ModelTester:
 
             # Reconstruct the image and save it
             pred_img = reconstruct_image(self.config, image_id, pos, labels)
+            total_pixels = np.prod(pred_img.shape[:])
             save_prediction_image(self.config, output_dir, self.config.filenames["test_images"], image_id, pred_img)
 
             # Compute metrics for the image
+            if len(labels) < total_pixels:
+                labels = np.concatenate([labels, np.zeros(total_pixels - len(labels))])
+                ground_truth_labels = np.concatenate([ground_truth_labels, np.zeros(total_pixels - len(ground_truth_labels))])
             metrics = compute_image_metrics(ground_truth_labels, labels, image_id)
             results.append(metrics)
 

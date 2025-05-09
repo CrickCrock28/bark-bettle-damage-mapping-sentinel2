@@ -148,6 +148,21 @@ class Pipeline:
         )
 
     def setup_testing_dataloaders(self):
+        """Load the testing dataset"""
+        test_dataset = self.load_dataset(
+            year=self.config.dataset["year"],
+            filtered=self.config.dataset["use_forest_masks"],
+            is_train=False
+        )
+        self.data_loaders["test"] = DataLoader(
+            test_dataset,
+            batch_size=self.config.training["batch_size"],
+            shuffle=False,
+            num_workers=self.config.dataset["num_workers"],
+            pin_memory=True
+        )        
+
+    def setup_damage_detection_dataloaders(self):
         """Load the testing datasets"""
         for year in [2019, 2020]:
             for filtered in [True, False]:
@@ -178,16 +193,14 @@ class Pipeline:
         self.setup_testing_dataloaders()
         tester = ModelTester(
             config=self.config,
-            test_loaders={
-                key: loader for key, loader in self.data_loaders.items() if key.startswith("2020") and key.endswith("_test")
-            }
+            test_loader=self.data_loaders["test"]
         )
         tester.run_test()
 
 
     def run_damage_detection(self):
         """Test the model using the config-specified dataset"""
-        self.setup_testing_dataloaders()
+        self.setup_damage_detection_dataloaders()
         tester = DamageDetectionTester(
             config=self.config,
             test_loaders={

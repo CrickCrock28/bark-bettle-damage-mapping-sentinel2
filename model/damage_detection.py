@@ -26,33 +26,33 @@ class DamageDetectionTester:
         """Run damage detection on the test datasets and save results."""
         writer_path = os.path.join(
             self.config.paths["results_dir"],
-            "damage_detection_results.xlsx"
+            self.config.filenames["metrics_results"]
         )
-        test_result_base_path = os.path.join(
+        damage_detection_result_base_path = os.path.join(
             self.config.paths["results_dir"],
             self.config.paths["results_damage_detection_dir"]
-        )        
-        results = []
+        )
+        
         for mode in ["filtered", "all_data"]:
-            sheet_name = f"damage-detection_{mode}"
+            sheet_name = f"dam-det_{mode}_{self.config.testing['distance_metric']}"
             loader_2019 = self.test_loaders[f"2019_{mode}_test"]
             loader_2020 = self.test_loaders[f"2020_{mode}_test"]
             metrics = self.detect_damage(loader_2019, loader_2020, mode)
             df = pd.DataFrame(metrics)
-            results.append((sheet_name, df))
             
-        with pd.ExcelWriter(writer_path, engine="openpyxl") as writer:
-            for sheet_name, df in results:
+            file_exists = os.path.exists(writer_path)
+            with pd.ExcelWriter(writer_path, mode='a' if file_exists else 'w', engine='openpyxl', if_sheet_exists='replace' if file_exists else None) as writer:
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-        insert_images_into_excel(
-            writer_path,
-            results,
-            test_result_base_path,
-            self.config.filenames["damage_detection_images"],
-            self.config.paths["test_mask_dir"],
-            self.config.filenames["masks"]
-        )
+            insert_images_into_excel(
+                writer_path,
+                df,
+                sheet_name,
+                os.path.join(damage_detection_result_base_path, mode),
+                self.config.filenames["damage_detection_images"],
+                self.config.paths["test_mask_dir"],
+                self.config.filenames["masks"]
+            )
 
     def detect_damage(self, loader_2019, loader_2020, mode):
         """Evaluate the model on a pair of datasets (2019 and 2020)."""
@@ -101,9 +101,13 @@ class DamageDetectionTester:
 
             # Reconstruct the image and save it
             pred_img = reconstruct_image(self.config, image_id, pos, labels)
+            total_pixels = np.prod(pred_img.shape[:])
             save_prediction_image(self.config, output_dir, self.config.filenames["damage_detection_images"], image_id, pred_img)
 
             # Compute metrics for the image
+            if len(labels) < total_pixels:
+                labels = np.concatenate([labels, np.zeros(total_pixels - len(labels))])
+                ground_truth_labels = np.concatenate([ground_truth_labels, np.zeros(total_pixels - len(ground_truth_labels))])
             metrics = compute_image_metrics(ground_truth_labels, labels, image_id)
             results.append(metrics)
 

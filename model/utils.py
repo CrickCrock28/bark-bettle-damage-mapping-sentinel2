@@ -206,32 +206,30 @@ def insert_image_column(ws, df, image_base_path, filename_format, column_letter,
                 ws.row_dimensions[excel_row].height = 125
                 ws.add_image(img, f"{column_letter}{excel_row}")
 
-def insert_images_into_excel(writer_path, results, results_base_path, result_filename_format, ground_truth_base_path, ground_truth_filename_format):
+def insert_images_into_excel(writer_path, df, sheet_name, results_base_path, result_filename_format, ground_truth_base_path, ground_truth_filename_format):
     """Insert result and ground truth images into the Excel file."""
     wb = load_workbook(writer_path)
     temp_pngs = set()
 
-    for sheet_name, df in results:
-        ws = wb[sheet_name]
-        subfolder = sheet_name.split("_", 1)[1]
-        insert_image_column(
-            ws,
-            df,
-            os.path.join(results_base_path, subfolder),
-            result_filename_format,
-            "L",
-            "Predictions",
-            temp_pngs
-        )
-        insert_image_column(
-            ws,
-            df,
-            ground_truth_base_path,
-            ground_truth_filename_format,
-            "M",
-            "Ground_truth",
-            temp_pngs
-        )
+    ws = wb[sheet_name]
+    insert_image_column(
+        ws,
+        df,
+        results_base_path,
+        result_filename_format,
+        "L",
+        "Predictions",
+        temp_pngs
+    )
+    insert_image_column(
+        ws,
+        df,
+        ground_truth_base_path,
+        ground_truth_filename_format,
+        "M",
+        "Ground_truth",
+        temp_pngs
+    )
 
     wb.save(writer_path)
 
