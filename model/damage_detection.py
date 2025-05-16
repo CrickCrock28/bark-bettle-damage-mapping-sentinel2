@@ -101,13 +101,9 @@ class DamageDetectionTester:
 
             # Reconstruct the image and save it
             pred_img = reconstruct_image(self.config, image_id, pos, labels)
-            total_pixels = np.prod(pred_img.shape[:])
             save_prediction_image(self.config, output_dir, self.config.filenames["damage_detection_images"], image_id, pred_img)
 
             # Compute metrics for the image
-            if len(labels) < total_pixels:
-                labels = np.concatenate([labels, np.zeros(total_pixels - len(labels))])
-                ground_truth_labels = np.concatenate([ground_truth_labels, np.zeros(total_pixels - len(ground_truth_labels))])
             metrics = compute_image_metrics(ground_truth_labels, labels, image_id)
             results.append(metrics)
 
