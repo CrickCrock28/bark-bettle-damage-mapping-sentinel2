@@ -124,10 +124,6 @@ class DamageDetectionTester:
             scores = np.linalg.norm(probs_2019 - probs_2020, axis=1)
         elif self.config.testing["distance_metric"] == "sam":
             scores = compute_sam(probs_2019, probs_2020)
-            # FIXME choose one of the two functions and delete comments
-            # scores2 = compute_sam_2(probs_2019, probs_2020)
-            # print("Massima differenza", np.max(np.abs(scores - scores2))) # 3.189500421285629e-05
-            # print("Differenza media", np.mean(np.abs(scores - scores2))) # 1.2524034241127164e-06
         else:
             raise ValueError("Unknown distance metric, check the config file.")
         threshold = threshold_otsu(scores)

@@ -104,33 +104,7 @@ def log_epoch_results(epoch, train_metrics, val_metrics, test_metrics, experimen
         with pd.ExcelWriter(results_path, engine='openpyxl') as writer:
             df_new.to_excel(writer, sheet_name=experiment_name, index=False)
 
-def compute_sam(A,B): # FIXME choose one of the two functions
-    # A=utility.to_2d(A)
-    # B=utility.to_2d(B)
-    if (A.shape == B.shape):
-        # print("------SAM")
-        # print(A.shape)
-        row, k = A.shape
-        sam = np.zeros([row], float)
-        for i in range(row):
-            if (np.array_equal(A[i, :], B[i, :]) == True):
-                sam[i] = 0
-            else:
-                normT1 = np.linalg.norm(A[i, :])
-                normT2 = np.linalg.norm(B[i, :])
-                product = np.dot(A[i, :], B[i, :])
-                r = np.arccos(product / max((normT2 * normT1), 1e-5))
-                import math
-                if math.isnan(r):
-                    r = 0
-                sam[i] = r
-        return sam
-    else:
-        print("Can't calculate SAM, matrix dimensions are not equal:")
-        print("A = " + str(A.shape))
-        print("B = " + str(B.shape))
-
-def compute_sam_2(v1, v2): # FIXME choose one of the two functions
+def compute_sam(v1, v2):
     """Compute the Spectral Angle Mapper (SAM) between two sets of vectors."""
     dot = np.sum(v1 * v2, axis=1)
     norm1 = np.linalg.norm(v1, axis=1)
@@ -178,7 +152,7 @@ def save_prediction_image(config, output_dir, filename_format, image_id, array):
     with rasterio.open(out_path, 'w', **profile) as dst:
         dst.write(array, 1)
         
-def insert_image_column(ws, df, image_base_path, filename_format, column_letter, column_name, temp_pngs): # FIXME there is a better way?
+def insert_image_column(ws, df, image_base_path, filename_format, column_letter, column_name, temp_pngs):
     ws[f"{column_letter}1"] = column_name
     for i, row in df.iterrows():
         image_id = row["Image_ID"]
