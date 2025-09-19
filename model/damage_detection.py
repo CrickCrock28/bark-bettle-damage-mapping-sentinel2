@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from skimage.filters import threshold_otsu
-from model.utils import compute_sam, compute_sam_2, compute_image_metrics, reconstruct_image, save_prediction_image, insert_images_into_excel
+from model.utils import compute_sam, compute_image_metrics, reconstruct_image, save_prediction_image, insert_images_into_excel
 from model.BigEarthNetv2_0_ImageClassifier import BigEarthNetv2_0_ImageClassifier
 
 class DamageDetectionTester:
